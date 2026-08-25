@@ -89,9 +89,10 @@ contact.html    Contact/booking
 
 ## 7. TODO (pick up here)
 
-1. **Contact form backend** — `contact.html` form has no working backend. Wire up
-   **Netlify Forms** (add `data-netlify="true"` + hidden `form-name` to the `<form>`)
-   or Formspree. Currently the action is a Formspree placeholder.
+1. ~~**Contact form backend**~~ — DONE (2026-08-25): `contact.html` now uses
+   **Netlify Forms** (`data-netlify="true"`, hidden `form-name` field, honeypot
+   `bot-field`). Submissions will appear in the Netlify dashboard once deployed.
+   No action needed unless the owner prefers Formspree instead.
 2. **Real videos** — replace the placeholder blocks in `videos.html` with Vimeo
    embeds once the owner supplies links.
 3. **Logo decision** — swap the traced logo for one of the owner's official logo files.

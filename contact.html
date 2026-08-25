@@ -63,7 +63,9 @@
       </div>
 
       <!-- Contact form -->
-      <form class="contact-form" action="https://formspree.io/f/your-form-id" method="POST">
+      <form class="contact-form" name="booking" method="POST" data-netlify="true" data-netlify-honeypot="bot-field">
+        <input type="hidden" name="form-name" value="booking">
+        <p class="hidden" hidden><label>Don't fill this out if you're human: <input name="bot-field"></label></p>
         <h3>Send us your event details</h3>
         <div class="form-row">
           <div class="field">
@@ -105,7 +107,7 @@
           <textarea id="about" name="message" placeholder="Tell us about your fair, expected attendance, and anything else we should know."></textarea>
         </div>
         <button type="submit" class="btn btn--primary btn--lg">Send Request</button>
-        <p class="form-note">Form submissions require a free form service (e.g. Formspree, Netlify Forms) to be connected — replace <code>your-form-id</code> in the form action, or we can wire this up for you. In the meantime, call or email us directly and we'll respond right away.</p>
+        <p class="form-note">We'll get back to you within 1–2 business days. In the meantime, feel free to call or email us directly.</p>
       </form>
 
     </div>
