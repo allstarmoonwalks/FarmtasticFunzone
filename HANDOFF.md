@@ -96,11 +96,10 @@ contact.html    Contact/booking
 2. **Real videos** — replace the placeholder blocks in `videos.html` with Vimeo
    embeds once the owner supplies links.
 3. ~~**Logo decision**~~ — DONE (2026-08-25): keeping the current traced logo.
-4. ~~**Social links**~~ — DONE (2026-08-25): Facebook footer link now points to
-   https://www.facebook.com/search/top?q=farmtastic%20funzone%20llc (a search-results
-   link, not a dedicated page — owner has no confirmed Facebook page yet; revisit once
-   one exists). Instagram and TikTok icons removed from all 7 files (owner has no
-   accounts on those platforms).
+4. ~~**Social links**~~ — DONE (2026-08-25): Facebook footer link now points to the
+   real business page https://www.facebook.com/profile.php?id=61583006674823.
+   Instagram and TikTok icons removed from all 7 files (owner has no accounts on
+   those platforms).
 5. **Optional:** per-attraction photos (needs 6 more images), a 12th attraction if one exists.
 6. **Go live** — push to GitHub, connect Netlify, point the domain, retire Wix.
 
