@@ -142,7 +142,18 @@ contact.html    Contact/booking
    real business page https://www.facebook.com/profile.php?id=61583006674823.
    Instagram and TikTok icons removed from all 7 files (owner has no accounts on
    those platforms).
-5. **Optional:** per-attraction photos (needs 6 more images), a 12th attraction if one exists.
+5. **Per-attraction photos — IN PROGRESS (2026-08-25):** sourced from the owner's
+   Google Drive ("Farmtastic 2026" > "Pictures for web" folder). Found and added
+   to `images/`: `kernel-corn.jpg`, `farmtastic-corral.jpg`, `joyful-noise.jpg`
+   (all real event photos, kid-in-action shots, optimized ~1400px/q82). Could NOT
+   find a populated action shot for 3 attractions — only empty/staged booth
+   photos exist in Drive for these: **Ropin' Roundup**, **Pooper Scooper
+   Trooper**, **Craft Creations Corner**. Revisit once the owner has action
+   shots for those 3. Also note: these 3 new photos are NOT yet wired into
+   `booths.html` — the Attractions cards are deliberately text-only for
+   consistency (see section 6); adding photos there is a placement decision the
+   owner should make once all (or most) of the 11 have shots. A 12th attraction,
+   if one exists, is still unconfirmed with the owner.
 6. **Go live** — push to GitHub, connect Netlify, point the domain, retire Wix.
 
 ## 8. Environment quirks (for AI tools working via a mounted folder)
