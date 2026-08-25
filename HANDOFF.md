@@ -72,8 +72,9 @@ contact.html    Contact/booking
 
 ## 6. Key decisions & open questions
 
-- **Videos:** hosted on **Vimeo** (owner setting up an account), embedded on
-  `videos.html`. Do NOT host full videos in the repo/Netlify (bandwidth + file-size).
+- **Videos:** hosted on **YouTube** (owner decided against Vimeo — 2026-08-25),
+  embedded on `videos.html`. Do NOT host full videos in the repo/Netlify
+  (bandwidth + file-size).
 - **Photos on Netlify:** yes — served from the repo via Git. Good at this scale.
 - **Attractions page has no per-station photos** (text cards only). 5 of the 11
   stations have matching photos available; 6 do NOT (Kernel Corn-struction, FarmTastic
@@ -93,8 +94,8 @@ contact.html    Contact/booking
    **Netlify Forms** (`data-netlify="true"`, hidden `form-name` field, honeypot
    `bot-field`). Submissions will appear in the Netlify dashboard once deployed.
    No action needed unless the owner prefers Formspree instead.
-2. **Real videos** — replace the placeholder blocks in `videos.html` with Vimeo
-   embeds once the owner supplies links.
+2. **Real videos** — replace the placeholder blocks in `videos.html` with YouTube
+   embeds (see INSTRUCTIONS.md) once the owner supplies links.
 3. ~~**Logo decision**~~ — DONE (2026-08-25): keeping the current traced logo.
 4. ~~**Social links**~~ — DONE (2026-08-25): Facebook footer link now points to the
    real business page https://www.facebook.com/profile.php?id=61583006674823.

@@ -58,7 +58,7 @@ netlify.com/drop.)
    media dump out of the repo). Add a matching allow line to `.gitignore`:
    `!images/my-photo.jpg` — otherwise the file won't be committed/deployed.
 
-## Add a VIDEO (Vimeo)
+## Add a VIDEO (YouTube)
 
 Videos live on `videos.html`, one card per attraction, each with an `id` anchor
 (e.g. `id="ropin-roundup"`) that the Attractions page links to. To add a real video,
@@ -68,18 +68,20 @@ replace that card's placeholder block:
 <div class="video-embed"><div class="ph">…placeholder…</div></div>
 ```
 
-with a Vimeo iframe wrapped to stay 16:9:
+with a YouTube iframe wrapped to stay 16:9 (use the `youtube-nocookie.com` embed
+domain and the video's ID from its share/embed link):
 
 ```html
 <div class="video-embed" style="padding:0">
-  <iframe src="https://player.vimeo.com/video/VIDEO_ID"
+  <iframe src="https://www.youtube-nocookie.com/embed/VIDEO_ID"
           style="position:absolute;inset:0;width:100%;height:100%;border:0"
-          allow="autoplay; fullscreen; picture-in-picture" allowfullscreen
+          allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
+          allowfullscreen
           title="Attraction video"></iframe>
 </div>
 ```
 
-Keep videos on Vimeo/YouTube — do not commit large video files to the repo.
+Keep videos on YouTube — do not commit large video files to the repo.
 
 ## Wire up the CONTACT FORM (Netlify Forms)
 
