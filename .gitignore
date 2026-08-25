@@ -2,6 +2,25 @@
 Thumbs.db
 *.log
 node_modules/
+*.zip
 
-# local delivery archive (safe to delete)
-farmtastic-funzone-repo.zip
+# Photos: ignore the raw media dump in images/, track only the curated web
+# images the site actually uses (plus the logos). To add a new photo to the
+# repo, drop it in images/ and add a matching "!images/<name>" line below.
+images/*
+!images/.gitkeep
+!images/logo.png
+!images/logo_light.png
+!images/hero-kids-planting.jpg
+!images/tractor-track.jpg
+!images/saddle-up.jpg
+!images/planting-pots.jpg
+!images/cowboy-kids.jpg
+!images/stick-horse.jpg
+!images/animal-lamb.jpg
+!images/scarecrow.jpg
+!images/cowboy-crew.jpg
+!images/goat-friend.jpg
+!images/little-gardeners.jpg
+!images/ring-toss.jpg
+!images/about-family.jpg
