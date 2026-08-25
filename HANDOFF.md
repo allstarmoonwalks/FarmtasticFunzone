@@ -72,6 +72,34 @@ contact.html    Contact/booking
 
 ## 6. Key decisions & open questions
 
+- **Visual redesign — DONE (2026-08-25):** full "Vintage County Fair" restyle applied
+  site-wide via `styles.css` (shared across all 7 pages, no per-page HTML rewrites
+  needed beyond a font link + one decorative div per page). Additions:
+  - New Google Font **"Rye"** (`--font-display`) for eyebrow tags, ribbon badges,
+    and pills — a rustic hand-painted-sign feel. Headings stay on Baloo 2/Nunito
+    for readability.
+  - Subtle dot-grid "kraft paper" texture on the body background; diagonal
+    ticket-stripe texture on `.section--alt`; pasture-row stripe texture on
+    `.section--green`.
+  - `.bunting` — a pennant-flag banner (pure CSS/SVG data-URI, no image asset)
+    placed right under the header nav on every page.
+  - `.rope-divider` — a twisted-twine divider (used once between the homepage
+    hero and the next section; also used as the bottom edge of every
+    `.page-banner` and the top edge of the footer via `::after`/`::before`).
+  - Corner-fold "paper tab" accent (`::after` pseudo-element, cream-2 color) on
+    `.card`, `.attraction`, `.price-card`, `.feature`, `.contact-info`, and
+    `form.contact-form` — no HTML changes required.
+  - `.tag` (homepage attraction highlights) and `.price-table .pill`
+    (Popular/Best Value) reshaped into ribbon/banner badges via `clip-path`.
+  - Footer restyled as a barn-wood plank gradient with a rope-stitched top edge
+    (previously flat dark brown).
+  - Buttons got a subtle inset "carved sign" ring and a slight tilt-on-hover.
+  All changes are pure CSS/HTML (plus one small SVG data-URI per motif) — no new
+  build step, no external image assets, consistent with the project's
+  no-framework approach. Verified with Playwright screenshots (desktop + mobile,
+  all 7 pages) before committing; no regressions to the video popup modal
+  (2026-08-25 feature) or mobile nav.
+
 - **Videos:** hosted on **YouTube** (owner decided against Vimeo — 2026-08-25),
   embedded on `videos.html`. Do NOT host full videos in the repo/Netlify
   (bandwidth + file-size).
