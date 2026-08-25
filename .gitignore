@@ -2,3 +2,6 @@
 Thumbs.db
 *.log
 node_modules/
+
+# local delivery archive (safe to delete)
+farmtastic-funzone-repo.zip
