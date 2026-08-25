@@ -1,0 +1,154 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Book Your Fair — Farmtastic Fun Zone</title>
+<meta name="description" content="Book the Farmtastic Fun Zone for your fair or rodeo. Call 936-223-1433, email farmtasticfunzone@gmail.com, or send us your event details.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Baloo+2:wght@500;600;700;800&family=Nunito:wght@400;600;700;800&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="styles.css">
+</head>
+<body>
+
+<header class="site-header">
+  <div class="container">
+    <nav class="nav">
+      <a class="brand" href="index.html">
+        <img class="brand-logo" src="images/logo.png" alt="Farmtastic Fun Zone">
+      </a>
+      <input type="checkbox" id="nav-check">
+      <label class="nav-toggle" for="nav-check">☰</label>
+      <ul class="nav-links">
+        <li><a href="index.html">Home</a></li>
+        <li><a href="booths.html">Attractions</a></li>
+        <li><a href="pricing.html">Pricing</a></li>
+        <li><a href="photos.html">Photos</a></li>
+        <li><a href="videos.html">Videos</a></li>
+        <li><a href="about.html">About</a></li>
+        <li><a href="contact.html" class="active">Contact</a></li>
+        <li class="nav-cta"><a class="btn btn--primary" href="contact.html">Book Your Fair 🌾</a></li>
+      </ul>
+    </nav>
+  </div>
+</header>
+
+<section class="page-banner">
+  <div class="container">
+    <span class="eyebrow">Book Your Fair</span>
+    <h1>Let's bring the farm to your event</h1>
+    <p>Tell us your dates and we'll build the perfect package. Prefer to talk? Give us a call or send an email — we'd love to hear about your fair.</p>
+  </div>
+</section>
+
+<section class="section">
+  <div class="container">
+    <div class="contact-grid">
+
+      <!-- Contact info -->
+      <div class="contact-info">
+        <h3>Get in touch</h3>
+        <ul>
+          <li><span class="ico">📞</span><div><strong>Phone</strong><br><a href="tel:9362231433">936-223-1433</a></div></li>
+          <li><span class="ico">✉️</span><div><strong>Email</strong><br><a href="mailto:farmtasticfunzone@gmail.com">farmtasticfunzone@gmail.com</a></div></li>
+          <li><span class="ico">📍</span><div><strong>Location</strong><br>Montgomery, Texas<br><em>Statewide travel across Texas</em></div></li>
+        </ul>
+        <h4 style="margin-top:20px;">Follow along</h4>
+        <div class="socials">
+          <a href="https://www.facebook.com" aria-label="Facebook" target="_blank" rel="noopener">📘</a>
+          <a href="https://www.instagram.com" aria-label="Instagram" target="_blank" rel="noopener">📸</a>
+          <a href="https://www.tiktok.com" aria-label="TikTok" target="_blank" rel="noopener">🎵</a>
+        </div>
+      </div>
+
+      <!-- Contact form -->
+      <form class="contact-form" action="https://formspree.io/f/your-form-id" method="POST">
+        <h3>Send us your event details</h3>
+        <div class="form-row">
+          <div class="field">
+            <label for="name">Your Name</label>
+            <input type="text" id="name" name="name" required>
+          </div>
+          <div class="field">
+            <label for="org">Fair / Organization</label>
+            <input type="text" id="org" name="organization">
+          </div>
+        </div>
+        <div class="form-row">
+          <div class="field">
+            <label for="phone">Phone</label>
+            <input type="tel" id="phone" name="phone">
+          </div>
+          <div class="field">
+            <label for="email">Email</label>
+            <input type="email" id="email" name="email" required>
+          </div>
+        </div>
+        <div class="field">
+          <label for="dates">Event Dates</label>
+          <input type="text" id="dates" name="event_dates" placeholder="e.g. October 10–19, 2026">
+        </div>
+        <div class="field">
+          <label for="booths">Booths Interested In</label>
+          <select id="booths" name="booths">
+            <option value="">Select a package…</option>
+            <option>4 Booths</option>
+            <option>6 Booths</option>
+            <option>8 Booths</option>
+            <option>10 Booths</option>
+            <option>Not sure yet — please advise</option>
+          </select>
+        </div>
+        <div class="field">
+          <label for="about">About Your Event</label>
+          <textarea id="about" name="message" placeholder="Tell us about your fair, expected attendance, and anything else we should know."></textarea>
+        </div>
+        <button type="submit" class="btn btn--primary btn--lg">Send Request</button>
+        <p class="form-note">Form submissions require a free form service (e.g. Formspree, Netlify Forms) to be connected — replace <code>your-form-id</code> in the form action, or we can wire this up for you. In the meantime, call or email us directly and we'll respond right away.</p>
+      </form>
+
+    </div>
+  </div>
+</section>
+
+<footer class="site-footer">
+  <div class="container">
+    <div class="footer-grid">
+      <div>
+        <div class="footer-brand"><img class="footer-logo" src="images/logo_light.png" alt="Farmtastic Fun Zone"></div>
+        <p class="footer-note">A fully traveling, turnkey agricultural education experience for fairs and rodeos across Texas. Sowing wisdom for the harvest.</p>
+        <div class="socials" style="margin-top:14px;">
+          <a href="https://www.facebook.com" aria-label="Facebook" target="_blank" rel="noopener">📘</a>
+          <a href="https://www.instagram.com" aria-label="Instagram" target="_blank" rel="noopener">📸</a>
+          <a href="https://www.tiktok.com" aria-label="TikTok" target="_blank" rel="noopener">🎵</a>
+        </div>
+      </div>
+      <div>
+        <h4>Explore</h4>
+        <ul class="footer-links">
+          <li><a href="index.html">Home</a></li>
+          <li><a href="booths.html">Attractions</a></li>
+          <li><a href="pricing.html">Pricing</a></li>
+          <li><a href="photos.html">Photos</a></li>
+        <li><a href="videos.html">Videos</a></li>
+          <li><a href="about.html">About</a></li>
+          <li><a href="contact.html">Contact</a></li>
+        </ul>
+      </div>
+      <div>
+        <h4>Get in Touch</h4>
+        <ul class="footer-links">
+          <li>📞 <a href="tel:9362231433">936-223-1433</a></li>
+          <li>✉️ <a href="mailto:farmtasticfunzone@gmail.com">farmtasticfunzone@gmail.com</a></li>
+          <li>📍 Montgomery, Texas</li>
+          <li><em>Statewide travel across Texas</em></li>
+        </ul>
+      </div>
+    </div>
+    <div class="footer-bottom">© 2026 Farmtastic Fun Zone. All rights reserved.</div>
+  </div>
+</footer>
+
+</body>
+</html>

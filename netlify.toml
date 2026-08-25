@@ -1,0 +1,5 @@
+# Netlify config for a static (no-build) site.
+# Site files live at the repo root, so there's nothing to compile.
+[build]
+  publish = "."
+  command = ""
