@@ -79,11 +79,11 @@ contact.html    Contact/booking
   stations have matching photos available; 6 do NOT (Kernel Corn-struction, FarmTastic
   Corral, Joyful Noise Junction, Ropin' Roundup, Pooper Scooper Trooper, Craft
   Creations Corner). Left text-only for a consistent look — revisit if photos arrive.
-- **Logo (OPEN):** header/footer currently use `logo.png` / `logo_light.png`,
-  which were **traced from the flyer**. The owner also provided official logo files
-  in the raw dump (`7000794354656680914.jpg` = green circle badge,
-  `8578739053953988877.jpg` = barn/tractor badge, two "ChatGPT ..." colorful
-  cartoon badges). Owner has not chosen one — consider swapping in an official file.
+- **Logo — DECIDED (2026-08-25):** keeping the traced logo (`logo.png` /
+  `logo_light.png`) already in header/footer. Owner reviewed the alternatives
+  in the raw dump (green circle badge, barn/tractor badge, two AI-generated
+  cow-face badges) and chose to stick with the current traced version. No
+  file changes needed.
 - **"12 vs 11" attractions:** the promo flyer says "12 Educational Farm Experiences"
   but the detail flyer lists only 11. Possible missing 12th — unconfirmed with owner.
 
@@ -95,7 +95,7 @@ contact.html    Contact/booking
    No action needed unless the owner prefers Formspree instead.
 2. **Real videos** — replace the placeholder blocks in `videos.html` with Vimeo
    embeds once the owner supplies links.
-3. **Logo decision** — swap the traced logo for one of the owner's official logo files.
+3. ~~**Logo decision**~~ — DONE (2026-08-25): keeping the current traced logo.
 4. **Social links** — footer Facebook/Instagram/TikTok are placeholder URLs; get the
    real profile URLs and update in all 7 files.
 5. **Optional:** per-attraction photos (needs 6 more images), a 12th attraction if one exists.
