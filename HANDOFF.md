@@ -31,7 +31,7 @@ rodeos across Texas. It is replacing the owner's old **Wix** site at
 - Videos page with a placeholder slot per attraction (awaiting real Vimeo links).
 - Git repo initialized; ready to push to GitHub and deploy on Netlify.
 
-**In progress / not done — see TODO (section 7).**
+**In progress / not done — see TODO (section 7). All videos are now live (2026-08-25); remaining items: go live on GitHub/Netlify/domain, optional per-attraction photos.**
 
 ## 3. Tech + structure
 
@@ -94,12 +94,14 @@ contact.html    Contact/booking
    **Netlify Forms** (`data-netlify="true"`, hidden `form-name` field, honeypot
    `bot-field`). Submissions will appear in the Netlify dashboard once deployed.
    No action needed unless the owner prefers Formspree instead.
-2. **Real videos** — IN PROGRESS: real YouTube embeds added for Kernel
-   Corn-struction Zone (VX2zcGQ3a7c), FarmTastic Corral (L09ZA_6-qNY), Craft
-   Creations Corner (CUPseOaIRdI), and Boots, Scoots, & Photo Shoots (WCvR3SnSAgg),
-   all 2026-08-25. 7 of 11 attraction slots in `videos.html` are still placeholders —
-   replace with YouTube embeds (see INSTRUCTIONS.md) as the owner supplies more
-   links.
+2. ~~**Real videos**~~ — DONE (2026-08-25): all 11 attraction slots in
+   `videos.html` now have real YouTube embeds: Tractor Track and Trots
+   (u10-oPBCdOE), Saddle Up Station (a9uKUnvjJ14), Kernel Corn-struction Zone
+   (VX2zcGQ3a7c), Boots Scoots & Photo Shoots (WCvR3SnSAgg), FarmTastic Corral
+   (L09ZA_6-qNY), Joyful Noise Junction (UTZWses18aM), Sprout & Grow Garden
+   (N1kUuo8XI8I), Ropin' Roundup (xQpfwNFLErE), Scarecrow Creation Station
+   (phTBLdwwCsE), Pooper Scooper Trooper (ieEu_hkZjL8), Craft Creations Corner
+   (CUPseOaIRdI). Setup placeholder note removed from the page.
 3. ~~**Logo decision**~~ — DONE (2026-08-25): keeping the current traced logo.
 4. ~~**Social links**~~ — DONE (2026-08-25): Facebook footer link now points to the
    real business page https://www.facebook.com/profile.php?id=61583006674823.
