@@ -94,10 +94,11 @@ contact.html    Contact/booking
    **Netlify Forms** (`data-netlify="true"`, hidden `form-name` field, honeypot
    `bot-field`). Submissions will appear in the Netlify dashboard once deployed.
    No action needed unless the owner prefers Formspree instead.
-2. **Real videos** — IN PROGRESS: Kernel Corn-struction Zone has a real YouTube
-   embed (2026-08-25, video VX2zcGQ3a7c). 10 of 11 attraction slots in `videos.html`
-   are still placeholders — replace with YouTube embeds (see INSTRUCTIONS.md) as the
-   owner supplies more links.
+2. **Real videos** — IN PROGRESS: real YouTube embeds added for Kernel
+   Corn-struction Zone (VX2zcGQ3a7c) and FarmTastic Corral (L09ZA_6-qNY), both
+   2026-08-25. 9 of 11 attraction slots in `videos.html` are still placeholders —
+   replace with YouTube embeds (see INSTRUCTIONS.md) as the owner supplies more
+   links.
 3. ~~**Logo decision**~~ — DONE (2026-08-25): keeping the current traced logo.
 4. ~~**Social links**~~ — DONE (2026-08-25): Facebook footer link now points to the
    real business page https://www.facebook.com/profile.php?id=61583006674823.
