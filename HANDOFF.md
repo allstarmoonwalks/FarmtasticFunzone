@@ -26,12 +26,18 @@ rodeos across Texas. It is replacing the owner's old **Wix** site at
 - 7-page site built: Home, Attractions, Pricing, Photos, Videos, About, Contact.
 - Content + pricing sourced from the owner's GroovePages draft and a print flyer.
 - Attractions page = the 11 stations from the flyer (headline, category, ages, description).
-- Real brand logo in header/footer (traced from the flyer — see Decisions).
-- Real photos wired into Home, Photos, and About (optimized, committed to Git).
-- Videos page with a placeholder slot per attraction (awaiting real Vimeo links).
+- Real brand logo in header/footer (traced from the flyer — owner decided to keep it, see Decisions).
+- Real photos wired into Home, Photos, About, and — as of this update — 8 of the
+  11 Attractions cards on `booths.html`.
+- All 11 attraction videos are real YouTube embeds on `videos.html`; `booths.html`
+  plays the same videos in an on-page popup instead of linking out.
+- Contact form wired to Netlify Forms; social links finalized (real Facebook,
+  no Instagram/TikTok); full "Vintage County Fair" visual redesign shipped
+  site-wide.
 - Git repo initialized; ready to push to GitHub and deploy on Netlify.
 
-**In progress / not done — see TODO (section 7). All videos are now live (2026-08-25); remaining items: go live on GitHub/Netlify/domain, optional per-attraction photos.**
+**In progress / not done — see TODO (section 7). Remaining items: photos for 3
+attractions (outstanding, needs owner action), go live on GitHub/Netlify/domain.**
 
 ## 3. Tech + structure
 
@@ -61,14 +67,24 @@ contact.html    Contact/booking
 
 ## 5. Photos
 
-- The site uses **13 curated, web-optimized images** in `images/` (named by
-  meaning, e.g. `hero-kids-planting.jpg`, `saddle-up.jpg`, `scarecrow.jpg`).
+- The site uses **16 curated, web-optimized images** in `images/` (named by
+  meaning, e.g. `hero-kids-planting.jpg`, `saddle-up.jpg`, `scarecrow.jpg`,
+  `kernel-corn.jpg`, `farmtastic-corral.jpg`, `joyful-noise.jpg`). New images
+  follow the project convention: ~1400px max width, JPEG quality ~82.
 - The owner also dropped their **entire Wix media library** (~35 raw files, hash
   names, some duplicates + AI-generated logos + a screenshot) into `images/`.
   Those raw files are **git-ignored** (see `.gitignore`) so they do NOT bloat the
   repo or Netlify deploy. Only the curated names + logos are tracked.
 - The owner can safely delete the raw dump from `images/` locally at any time; the
   tracked curated copies are independent.
+- **Attractions page (2026-08-25):** each `.attraction` card on `booths.html` now
+  has a photo slot (`.a-photo`) above the text. **8 of 11** attractions have a
+  real photo wired in: Tractor Track and Trots, Saddle Up Station, Kernel
+  Corn-struction Zone, Boots/Scoots & Photo Shoots, FarmTastic Corral, Joyful
+  Noise Junction, Sprout & Grow Garden, Scarecrow Creation Station. The
+  remaining 3 (Ropin' Roundup, Pooper Scooper Trooper, Craft Creations Corner)
+  show a "📷 Photo coming soon" placeholder card (`.a-photo--soon`) — this is an
+  **outstanding item, see section 7**.
 
 ## 6. Key decisions & open questions
 
@@ -111,10 +127,10 @@ contact.html    Contact/booking
   (inline in `booths.html`, ~30 lines) rather than pure CSS; everything else
   (mobile nav) stays JS-free.
 - **Photos on Netlify:** yes — served from the repo via Git. Good at this scale.
-- **Attractions page has no per-station photos** (text cards only). 5 of the 11
-  stations have matching photos available; 6 do NOT (Kernel Corn-struction, FarmTastic
-  Corral, Joyful Noise Junction, Ropin' Roundup, Pooper Scooper Trooper, Craft
-  Creations Corner). Left text-only for a consistent look — revisit if photos arrive.
+- **Attractions page photos — RESOLVED for 8 of 11 (2026-08-25):** see section 5
+  for exactly which. The remaining 3 (Ropin' Roundup, Pooper Scooper Trooper,
+  Craft Creations Corner) are an **outstanding item that needs to be fixed** —
+  see section 7, item 1.
 - **Logo — DECIDED (2026-08-25):** keeping the traced logo (`logo.png` /
   `logo_light.png`) already in header/footer. Owner reviewed the alternatives
   in the raw dump (green circle badge, barn/tractor badge, two AI-generated
@@ -125,36 +141,24 @@ contact.html    Contact/booking
 
 ## 7. TODO (pick up here)
 
-1. ~~**Contact form backend**~~ — DONE (2026-08-25): `contact.html` now uses
-   **Netlify Forms** (`data-netlify="true"`, hidden `form-name` field, honeypot
-   `bot-field`). Submissions will appear in the Netlify dashboard once deployed.
-   No action needed unless the owner prefers Formspree instead.
-2. ~~**Real videos**~~ — DONE (2026-08-25): all 11 attraction slots in
-   `videos.html` now have real YouTube embeds: Tractor Track and Trots
-   (u10-oPBCdOE), Saddle Up Station (a9uKUnvjJ14), Kernel Corn-struction Zone
-   (VX2zcGQ3a7c), Boots Scoots & Photo Shoots (WCvR3SnSAgg), FarmTastic Corral
-   (L09ZA_6-qNY), Joyful Noise Junction (UTZWses18aM), Sprout & Grow Garden
-   (N1kUuo8XI8I), Ropin' Roundup (xQpfwNFLErE), Scarecrow Creation Station
-   (phTBLdwwCsE), Pooper Scooper Trooper (ieEu_hkZjL8), Craft Creations Corner
-   (CUPseOaIRdI). Setup placeholder note removed from the page.
-3. ~~**Logo decision**~~ — DONE (2026-08-25): keeping the current traced logo.
-4. ~~**Social links**~~ — DONE (2026-08-25): Facebook footer link now points to the
-   real business page https://www.facebook.com/profile.php?id=61583006674823.
-   Instagram and TikTok icons removed from all 7 files (owner has no accounts on
-   those platforms).
-5. **Per-attraction photos — IN PROGRESS (2026-08-25):** sourced from the owner's
-   Google Drive ("Farmtastic 2026" > "Pictures for web" folder). Found and added
-   to `images/`: `kernel-corn.jpg`, `farmtastic-corral.jpg`, `joyful-noise.jpg`
-   (all real event photos, kid-in-action shots, optimized ~1400px/q82). Could NOT
-   find a populated action shot for 3 attractions — only empty/staged booth
-   photos exist in Drive for these: **Ropin' Roundup**, **Pooper Scooper
-   Trooper**, **Craft Creations Corner**. Revisit once the owner has action
-   shots for those 3. Also note: these 3 new photos are NOT yet wired into
-   `booths.html` — the Attractions cards are deliberately text-only for
-   consistency (see section 6); adding photos there is a placement decision the
-   owner should make once all (or most) of the 11 have shots. A 12th attraction,
-   if one exists, is still unconfirmed with the owner.
-6. **Go live** — push to GitHub, connect Netlify, point the domain, retire Wix.
+1. **⚠️ OUTSTANDING — photos still missing for 3 attractions.** Ropin' Roundup,
+   Pooper Scooper Trooper, and Craft Creations Corner each show a "📷 Photo
+   coming soon" placeholder on `booths.html` instead of a real photo. The
+   owner's Google Drive was searched (2026-08-25) and does **not** currently
+   contain a populated/action shot of kids actually using these 3 booths —
+   only empty/staged booth photos exist there, which weren't a good fit.
+   **This needs the owner to supply new photos** (e.g. from a future event, or
+   ones not yet uploaded to Drive); it's not solvable by searching the existing
+   material harder. Once photos exist: optimize to ~1400px/quality 82 (see
+   `INSTRUCTIONS.md`), add to `images/` plus a `.gitignore` allow-line, and
+   swap the `.a-photo--soon` div for a real `<div class="a-photo"><img ...></div>`
+   in `booths.html` (see the 8 already-wired cards for the exact pattern).
+2. **Optional / lower priority:** revisit the 12 gallery captions on
+   `photos.html` for possibly better/more specific photos from Drive — this was
+   deferred mid-session in favor of the attraction-photo work above and hasn't
+   been resumed.
+3. **Confirm the "12 vs 11" attraction discrepancy** with the owner (section 6).
+4. **Go live** — push to GitHub, connect Netlify, point the domain, retire Wix.
 
 ## 8. Environment quirks (for AI tools working via a mounted folder)
 

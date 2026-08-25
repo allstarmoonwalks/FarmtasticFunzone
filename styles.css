@@ -265,11 +265,20 @@ img { max-width: 100%; display: block; }
 .attraction {
   position: relative;
   background:#fff; border:1px solid #f1e6d0; border-radius: var(--radius);
-  padding: 24px 24px 26px; box-shadow: var(--shadow-sm);
-  border-top: 5px solid var(--gold); display:flex; flex-direction:column; gap: 12px;
+  overflow: hidden;
+  box-shadow: var(--shadow-sm);
+  border-top: 5px solid var(--gold); display:flex; flex-direction:column;
   transition: transform .14s ease, box-shadow .14s ease;
 }
 .attraction:hover { transform: translateY(-3px); box-shadow: var(--shadow); }
+.attraction .a-photo { aspect-ratio: 4/3; background:#f3ead7; overflow:hidden; }
+.attraction .a-photo img { width:100%; height:100%; object-fit:cover; display:block; }
+.attraction .a-photo--soon {
+  display:flex; align-items:center; justify-content:center; text-align:center; padding: 14px;
+  background-image: repeating-linear-gradient(45deg, #f3ead7, #f3ead7 12px, #ece0c8 12px, #ece0c8 24px);
+  color: var(--ink-soft); font-family: var(--font-display); font-size: 1rem; letter-spacing:.02em;
+}
+.attraction .a-body { padding: 24px 24px 26px; display:flex; flex-direction:column; gap: 12px; }
 .attraction .a-head { display:flex; align-items:center; gap: 12px; }
 .attraction .a-ico {
   width: 52px; height: 52px; flex: none; border-radius: 14px;
