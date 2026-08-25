@@ -75,6 +75,13 @@ contact.html    Contact/booking
 - **Videos:** hosted on **YouTube** (owner decided against Vimeo — 2026-08-25),
   embedded on `videos.html`. Do NOT host full videos in the repo/Netlify
   (bandwidth + file-size).
+- **Attractions-page video links (2026-08-25):** "Watch the video" on `booths.html`
+  now opens the attraction's video in a popup/lightbox on that same page (autoplay,
+  closable via ✕/backdrop/Escape) instead of navigating to `videos.html`.
+  `videos.html` itself is untouched — it still lists all 11 videos in the grid.
+  This is the one place in the project that uses a small vanilla-JS snippet
+  (inline in `booths.html`, ~30 lines) rather than pure CSS; everything else
+  (mobile nav) stays JS-free.
 - **Photos on Netlify:** yes — served from the repo via Git. Good at this scale.
 - **Attractions page has no per-station photos** (text cards only). 5 of the 11
   stations have matching photos available; 6 do NOT (Kernel Corn-struction, FarmTastic
