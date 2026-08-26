@@ -1,7 +1,7 @@
 User-agent: *
 Allow: /
 
-# Internal project docs — not meant for public search results
+# Internal project docs, not meant for public search results
 Disallow: /HANDOFF.md
 Disallow: /INSTRUCTIONS.md
 Disallow: /README.md
