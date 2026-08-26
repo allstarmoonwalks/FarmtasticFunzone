@@ -1,0 +1,8 @@
+# Force internal project docs to a real 404, even though they're tracked in git.
+# The "!" makes this override serving the actual file — visitors and crawlers
+# get a genuine 404 response, not just a robots.txt "please don't index" hint.
+/HANDOFF.md       /404.html  404!
+/INSTRUCTIONS.md  /404.html  404!
+/README.md        /404.html  404!
+/netlify.toml     /404.html  404!
+/_redirects       /404.html  404!
