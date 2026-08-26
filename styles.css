@@ -566,3 +566,53 @@ body.modal-open { overflow: hidden; }
 }
 .photos-soon span { font-size: 2.4rem; display: block; margin-bottom: 10px; }
 .photos-soon p { color: var(--ink-soft); font-family: var(--font-head); font-weight: 600; margin: 0; }
+
+/* ---------- Zone dividers & zone nav (Attractions page, 4-zone grouping) ---------- */
+.zone-nav { display:flex; flex-wrap:wrap; gap:10px; justify-content:center; margin: 0 0 36px; }
+.zone-nav a {
+  font-family: var(--font-head); font-weight: 700; font-size: .85rem;
+  padding: 9px 18px; border-radius: 999px; text-decoration: none; color: #fff;
+  box-shadow: var(--shadow-sm); transition: transform .14s ease, filter .14s ease;
+}
+.zone-nav a:hover { transform: translateY(-2px); filter: brightness(1.08); }
+.zone-nav a.zn-gold  { background: var(--gold); color: var(--ink); }
+.zone-nav a.zn-green { background: var(--green); }
+.zone-nav a.zn-red   { background: var(--barn); }
+.zone-nav a.zn-brown { background: var(--wood); }
+
+.zone-divider {
+  scroll-margin-top: 90px;
+  border-radius: var(--radius);
+  padding: 34px 24px 30px;
+  text-align: center;
+  margin: 0 0 26px;
+  box-shadow: var(--shadow-sm);
+}
+.zone-divider .zone-ico {
+  width: 62px; height: 62px; margin: 0 auto 12px; border-radius: 50%;
+  display: grid; place-items: center; font-size: 1.8rem;
+  background: rgba(255,255,255,.2);
+}
+.zone-divider h2 {
+  font-family: var(--font-display); font-weight: 400; font-size: 1.85rem;
+  letter-spacing: .02em; margin: 0 0 8px;
+}
+.zone-divider p { max-width: 620px; margin: 0 auto; font-size: 1rem; }
+
+.zone-divider--gold  { background: var(--gold); }
+.zone-divider--gold  .zone-ico, .zone-divider--gold h2 { color: var(--ink); }
+.zone-divider--gold  p { color: rgba(51,38,27,.75); }
+
+.zone-divider--green { background: var(--green); }
+.zone-divider--green  .zone-ico, .zone-divider--green h2 { color: #fff; }
+.zone-divider--green  p { color: rgba(255,255,255,.85); }
+
+.zone-divider--red   { background: var(--barn); }
+.zone-divider--red    .zone-ico, .zone-divider--red h2 { color: #fff; }
+.zone-divider--red    p { color: rgba(255,255,255,.85); }
+
+.zone-divider--brown { background: var(--wood); }
+.zone-divider--brown  .zone-ico, .zone-divider--brown h2 { color: var(--cream-2); }
+.zone-divider--brown  p { color: rgba(253,239,211,.8); }
+
+.attractions + .zone-divider { margin-top: 44px; }

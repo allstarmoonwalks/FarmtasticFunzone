@@ -44,6 +44,12 @@ rodeos across Texas. It is replacing the owner's old **Wix** site at
   tile links to its own `photos-<slug>.html` page showing every real photo
   available for that category. See section 5 for full detail, including two
   content-accuracy caveats the owner should be aware of.
+- **Attractions page regrouped into 4 zones (2026-08-26):** `booths.html` now
+  organizes its 11 attraction cards under 4 color-coded zone dividers (Active
+  Adventures / Real Farmer University / The Creative Harvest / Memory Makers)
+  with a jump-link nav at the top, instead of one flat 11-card list. Sourced
+  from a marketing pitch-deck PDF the owner shared. See section 6 for the
+  full breakdown.
 - Git repo initialized; ready to push to GitHub and deploy on Netlify.
 
 **In progress / not done — see TODO (section 7). Remaining items: go live on
@@ -209,6 +215,31 @@ contact.html    Contact/booking
   but the detail flyer lists only 11. Possible missing 12th — unconfirmed with owner.
   (Not the same thing as the new "Animal Encounters" photo category, which is a
   bonus 12th *photo* category, not a claim that FarmTastic runs a 12th attraction.)
+  Note: the pitch-deck PDF the owner later shared (see below) also lists exactly
+  11 attractions across its 4 zones, with no 12th — supporting evidence, but
+  still not a confirmation from the owner either way.
+- **Attractions page 4-zone regrouping — DONE (2026-08-26).** The owner shared a
+  marketing pitch-deck PDF ("Farmtastic Fun Zone: A Turnkey Family Experience")
+  built in a similar vintage-engraving style to the site, and asked for its
+  formatting ideas to be applied. That deck organizes the 11 attractions into
+  4 zones; `booths.html` was restructured to match:
+  - **Zone 1: Active Adventures** (gold, 🐎) — Tractor Track and Trots,
+    FarmTastic Corral, Pooper Scooper Trooper.
+  - **Zone 2: Real Farmer University** (green, 🎓) — Saddle Up Station,
+    Ropin' Roundup, Scarecrow Creation Station.
+  - **Zone 3: The Creative Harvest** (red, 🎨) — Kernel Corn-struction Zone,
+    Joyful Noise Junction, Craft Creations Corner.
+  - **Zone 4: Memory Makers** (brown, 📷) — Sprout & Grow Garden, Boots,
+    Scoots, & Photo Shoots.
+  Each zone gets a full-width `.zone-divider` banner (icon + title + tagline,
+  colored via the site's existing `--gold`/`--green`/`--barn`/`--wood` tokens
+  — no new colors introduced) and a `.zone-nav` row of jump-link pills at the
+  top of the page for quick navigation between zones. All 11 attraction cards
+  and their content are unchanged — only grouping/order and the new dividers
+  were added. `photos.html` and its 12 category pages were **not** regrouped
+  by zone (out of scope for this pass) — they still list all categories in
+  the original flat grid; revisit if the owner wants the same zone treatment
+  there.
 
 ## 7. TODO (pick up here)
 
@@ -225,7 +256,11 @@ contact.html    Contact/booking
    category should be reworded or removed from `photos.html` and
    `photos-animal-encounters.html`.
 3. **Confirm the "12 vs 11" attraction discrepancy** with the owner (section 6).
-4. **Go live** — push to GitHub (repo is up to date locally; owner runs
+4. **Optional — extend the 4-zone grouping to `photos.html`?** The Attractions
+   page now groups by zone (section 6); the Photos category grid does not.
+   Ask the owner whether they want the same 4-zone dividers applied there, or
+   prefer the flat 12-tile grid it already has.
+5. **Go live** — push to GitHub (repo is up to date locally; owner runs
    `git push`), connect Netlify, point the domain, retire Wix. Contact form
    submissions won't work until the site is actually deployed on Netlify.
 
