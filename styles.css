@@ -417,6 +417,7 @@ form.contact-form { position: relative; background:#fff; border:1px solid #f1e6d
   background:#fff; border:1px solid #eadfca; font-size: 1.15rem; text-decoration:none;
 }
 .socials a:hover { background: var(--gold-soft); }
+.socials a svg { display:block; }
 
 /* ---------- Footer ---------- */
 .site-footer {
