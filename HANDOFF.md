@@ -233,13 +233,31 @@ contact.html    Contact/booking
     Scoots, & Photo Shoots.
   Each zone gets a full-width `.zone-divider` banner (icon + title + tagline,
   colored via the site's existing `--gold`/`--green`/`--barn`/`--wood` tokens
-  — no new colors introduced) and a `.zone-nav` row of jump-link pills at the
-  top of the page for quick navigation between zones. All 11 attraction cards
-  and their content are unchanged — only grouping/order and the new dividers
-  were added. `photos.html` and its 12 category pages were **not** regrouped
-  by zone (out of scope for this pass) — they still list all categories in
-  the original flat grid; revisit if the owner wants the same zone treatment
-  there.
+  — no new colors introduced) and, at the top of the page, a `.zone-path`
+  "guided tour" component (4 circular icon medallions connected by a dashed
+  line, each still a jump-link to its zone's anchor) — replaces an earlier
+  plain pill-row nav with a visual journey matching the deck's own "Your
+  Guided Tour" slide. All 11 attraction cards and their content are unchanged
+  — only grouping/order and the new dividers/path were added. `photos.html`
+  and its 12 category pages were **not** regrouped by zone (out of scope for
+  this pass) — they still list all categories in the original flat grid;
+  revisit if the owner wants the same zone treatment there.
+- **More deck-derived design elements added (2026-08-26):** after the 4-zone
+  regroup, the owner asked for any more design ideas from the same pitch deck.
+  Two more sections were added, both using only existing site colors/fonts:
+  - **Home page (`index.html`):** a new "A complete, balanced experience"
+    section (reusing `.feature-row`, new `.feature-row--4` variant for a
+    4-column layout that collapses to 2 then 1 column) between the Mission
+    Teaser and CTA Band, with the deck's own copy — Broad Appeal, Curated
+    Variety, Turnkey & Professional, Deeply Engaging.
+  - **Pricing page (`pricing.html`):** a new "Build Your Adventure" section
+    (new `.zone-blocks` pattern — 4 colored link-tiles, one per zone, using
+    the same `--gold`/`--green`/`--barn`/`--wood` tokens) right after the page
+    banner, each tile linking to that zone's anchor on `booths.html`. Copy is
+    adapted from the deck's "Let's Build the Perfect Farm Adventure" slide —
+    the deck's placeholder contact info on its closing slide (email@
+    farmtasticfunzone.com / (555) 123-4567) was **not** used anywhere; the
+    site's real contact info was left untouched everywhere.
 
 ## 7. TODO (pick up here)
 
@@ -263,6 +281,11 @@ contact.html    Contact/booking
 5. **Go live** — push to GitHub (repo is up to date locally; owner runs
    `git push`), connect Netlify, point the domain, retire Wix. Contact form
    submissions won't work until the site is actually deployed on Netlify.
+6. **Optional — any more pitch-deck ideas left to mine?** Three deck-derived
+   additions are now live (4-zone regroup, guided-tour zone path, Complete
+   Balanced Experience block, Build Your Adventure blocks) — the deck's
+   remaining slides are mostly restating the same zones/attractions, but
+   worth a second pass if the owner wants more.
 
 ## 8. Environment quirks (for AI tools working via a mounted folder)
 

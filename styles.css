@@ -321,7 +321,29 @@ img { max-width: 100%; display: block; }
 .feature h3 { margin: 8px 0 6px; }
 .feature p { color: var(--ink-soft); margin: 0; }
 
+.feature-row--4 { grid-template-columns: repeat(4,1fr); }
+@media (max-width: 900px) { .feature-row--4 { grid-template-columns: 1fr 1fr; } }
+@media (max-width: 520px) { .feature-row--4 { grid-template-columns: 1fr; } }
+
 /* ---------- Pricing ---------- */
+/* ---------- Zone blocks (Pricing page "Build Your Adventure") ---------- */
+.zone-blocks { display: grid; grid-template-columns: repeat(4,1fr); gap: 16px; margin: 30px 0 6px; }
+@media (max-width: 900px) { .zone-blocks { grid-template-columns: 1fr 1fr; } }
+@media (max-width: 520px) { .zone-blocks { grid-template-columns: 1fr; } }
+.zone-block {
+  display: block; text-decoration: none; border-radius: var(--radius);
+  padding: 26px 20px; text-align: center; color: #fff;
+  box-shadow: var(--shadow-sm); transition: transform .16s ease, filter .16s ease;
+}
+.zone-block:hover { transform: translateY(-4px); filter: brightness(1.06); }
+.zone-block .zb-ico { font-size: 2rem; display:block; margin-bottom: 10px; }
+.zone-block h3 { font-family: var(--font-head); font-size: 1.05rem; margin: 0 0 6px; }
+.zone-block p { font-size: .85rem; margin: 0; opacity: .9; }
+.zone-block--gold  { background: var(--gold); color: var(--ink); }
+.zone-block--green { background: var(--green); }
+.zone-block--red   { background: var(--barn); }
+.zone-block--brown { background: var(--wood); }
+
 .price-toggle-note { text-align:center; color: var(--ink-soft); margin-bottom: 30px; }
 .price-cols { display: grid; grid-template-columns: 1fr 1fr; gap: 26px; align-items: start; }
 @media (max-width: 820px) { .price-cols { grid-template-columns: 1fr; } }
@@ -567,18 +589,66 @@ body.modal-open { overflow: hidden; }
 .photos-soon span { font-size: 2.4rem; display: block; margin-bottom: 10px; }
 .photos-soon p { color: var(--ink-soft); font-family: var(--font-head); font-weight: 600; margin: 0; }
 
-/* ---------- Zone dividers & zone nav (Attractions page, 4-zone grouping) ---------- */
-.zone-nav { display:flex; flex-wrap:wrap; gap:10px; justify-content:center; margin: 0 0 36px; }
-.zone-nav a {
-  font-family: var(--font-head); font-weight: 700; font-size: .85rem;
-  padding: 9px 18px; border-radius: 999px; text-decoration: none; color: #fff;
-  box-shadow: var(--shadow-sm); transition: transform .14s ease, filter .14s ease;
+/* ---------- Guided-tour zone path (Attractions page, 4-zone grouping) ---------- */
+.zone-path {
+  display: flex;
+  justify-content: center;
+  gap: 10px;
+  margin: 0 0 40px;
+  flex-wrap: wrap;
 }
-.zone-nav a:hover { transform: translateY(-2px); filter: brightness(1.08); }
-.zone-nav a.zn-gold  { background: var(--gold); color: var(--ink); }
-.zone-nav a.zn-green { background: var(--green); }
-.zone-nav a.zn-red   { background: var(--barn); }
-.zone-nav a.zn-brown { background: var(--wood); }
+.zone-node {
+  flex: 1 1 200px;
+  max-width: 220px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  text-decoration: none;
+  position: relative;
+  padding-top: 4px;
+}
+.zone-node:not(:last-child)::after {
+  content: "";
+  position: absolute;
+  top: 45px;
+  left: 50%;
+  width: calc(100% + 10px);
+  border-top: 3px dashed var(--rope-dark);
+  z-index: 0;
+}
+.zone-node-circle {
+  width: 82px; height: 82px; border-radius: 50%;
+  display: grid; place-items: center;
+  font-size: 2.1rem;
+  border: 4px solid var(--cream);
+  box-shadow: var(--shadow-sm);
+  position: relative; z-index: 1;
+  margin-bottom: 10px;
+  transition: transform .16s ease;
+}
+.zone-node:hover .zone-node-circle { transform: translateY(-4px) scale(1.06); }
+.zone-node-step {
+  font-family: var(--font-head); font-weight: 800; font-size: .68rem;
+  letter-spacing: .08em; text-transform: uppercase; color: var(--ink-soft);
+}
+.zone-node-label {
+  font-family: var(--font-head); font-weight: 700; font-size: .98rem; color: var(--ink);
+  margin: 3px 0 4px;
+}
+.zone-node-tag {
+  font-size: .8rem; color: var(--ink-soft); line-height: 1.3; max-width: 170px;
+}
+.zone-node--gold  .zone-node-circle { background: var(--gold); }
+.zone-node--green .zone-node-circle { background: var(--green); }
+.zone-node--red   .zone-node-circle { background: var(--barn); }
+.zone-node--brown .zone-node-circle { background: var(--wood); }
+
+@media (max-width: 780px) {
+  .zone-path { gap: 28px 8px; }
+  .zone-node { flex: 1 1 45%; max-width: 45%; }
+  .zone-node::after { display: none; }
+}
 
 .zone-divider {
   scroll-margin-top: 90px;
