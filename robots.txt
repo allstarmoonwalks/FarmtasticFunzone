@@ -1,0 +1,10 @@
+User-agent: *
+Allow: /
+
+# Internal project docs — not meant for public search results
+Disallow: /HANDOFF.md
+Disallow: /INSTRUCTIONS.md
+Disallow: /README.md
+Disallow: /netlify.toml
+
+Sitemap: https://www.farmtasticfunzone.com/sitemap.xml

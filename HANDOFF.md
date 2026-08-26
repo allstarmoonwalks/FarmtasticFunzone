@@ -316,8 +316,74 @@ contact.html    Contact/booking
 7. **Optional — upgrade `pricing.html`'s "Build Your Adventure" tiles to use
    the same deck-artwork zone icons** as `booths.html`, instead of emoji, for
    full visual consistency between the two pages.
+8. **SEO follow-ups that need the owner's input** (see section 8 for full
+   context):
+   - The 12 photo-category pages are thin content (~95-100 words each,
+     mostly boilerplate) — consider adding a short unique paragraph to each,
+     or accept it since they're supporting gallery pages, not primary
+     landing pages.
+   - `HANDOFF.md`, `INSTRUCTIONS.md`, `README.md`, and `netlify.toml` are
+     tracked in git and will be publicly deployed (Netlify `publish = "."`)
+     — `robots.txt` now blocks crawlers from them, but they're still
+     directly fetchable by URL. If that's not okay, the real fix is
+     restructuring the repo so the publish directory only contains the
+     public site files.
+   - Confirm `www.farmtasticfunzone.com` (not the bare apex domain) is the
+     intended canonical host before going live — all canonical/OG URLs and
+     the sitemap assume `www`.
+   - After launch: submit `sitemap.xml` to Google Search Console / Bing
+     Webmaster Tools, and verify the OG image/rich result renders correctly
+     with each platform's own preview debugger (Facebook Sharing Debugger,
+     Twitter Card Validator, Google Rich Results Test).
 
-## 8. Environment quirks (for AI tools working via a mounted folder)
+## 8. SEO audit & fixes (2026-08-26)
+
+Ran a full technical SEO pass. What was already in good shape: every page had
+a unique, reasonably-sized `<title>` and meta description, one `<h1>` per
+page with clean heading order, real alt text on every content image, no
+broken internal links, and image containers already use CSS `aspect-ratio`
+so layout shift (CLS) isn't a real risk even without HTML width/height
+attributes.
+
+What was missing, and is now fixed on all 19 pages:
+- **`robots.txt` + `sitemap.xml`** — didn't exist before; both added at the
+  repo root, sitemap lists all 19 pages with `https://www.farmtasticfunzone.com/`
+  as the base. `robots.txt` also disallows crawling the internal `.md` docs
+  (see the TODO item above for the caveat on that).
+- **Canonical tags** — every page now has `<link rel="canonical">` pointing
+  at its own `https://www.farmtasticfunzone.com/...` URL (homepage canonicalizes
+  to `/`, matching how Netlify serves `index.html`).
+- **Open Graph + Twitter Card tags** — every page now has `og:title`,
+  `og:description`, `og:url`, `og:image` (+ dimensions), `og:type`,
+  `og:site_name`, and matching `twitter:*` tags, so links shared on
+  Facebook/Twitter/iMessage/Slack show a real title, description, and image
+  instead of nothing. Reused each page's existing title/description text —
+  no new copy was written.
+- **Social share image (`images/og-image.jpg`, 1200×630)** — cropped from
+  the pitch deck's cover slide (barn, kids on tractors, the "Farmtastic Fun
+  Zone" logo lockup) at the standard OG aspect ratio, so shared links show a
+  proper branded preview card.
+- **Favicon** — the site had none before (browsers showed a generic/blank
+  tab icon). Built one from the cowboy-hat mark in `images/logo.png`
+  (cropped, centered on a gold background) → `favicon.ico` at the repo root
+  plus `favicon-16x16.png` / `favicon-32x32.png` / `apple-touch-icon.png` in
+  `images/`, linked from every page's `<head>`.
+- **`LocalBusiness` structured data (JSON-LD)** — added to `index.html` only
+  (name, phone, email, Montgomery TX address, areaServed: Texas, the
+  Facebook `sameAs` link, and the new OG image). This is what lets Google
+  show a knowledge-panel-style rich result. Not duplicated onto other pages
+  — that's optional if the owner wants it on `contact.html` too.
+- **`loading="lazy"` on below-the-fold images** — added to all 89 content
+  images site-wide (galleries, zone icons, footer logo, etc.), except each
+  page's header `.brand-logo`, which stays eager since it's always visible
+  immediately. Speeds up initial page load, a factor in Google's Core Web
+  Vitals ranking signals.
+
+Not changed (flagged as follow-ups instead, see the TODO above): the thin
+content on photo-category pages, and whether to restructure the deploy so
+the internal `.md` docs aren't publicly reachable at all.
+
+## 9. Environment quirks (for AI tools working via a mounted folder)
 
 This repo may live in a folder mounted read/write to an AI session that **cannot
 delete files** (unlink blocked). Consequences: leftover `*.stale` files can appear
