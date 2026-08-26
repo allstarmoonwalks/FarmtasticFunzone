@@ -193,8 +193,8 @@ img { max-width: 100%; display: block; }
   background-repeat: no-repeat;
 }
 .hero-content {
-  max-width: 620px;
-  margin: 0 0 0 clamp(20px, 9vw, 210px);
+  max-width: 480px;
+  margin: 0 0 0 clamp(40px, 44vw, 680px);
   padding: 34px 0 0;
   position: relative;
   z-index: 1;
