@@ -1,6 +1,6 @@
 # Farmtastic Fun Zone — Project Handoff
 
-_Last updated: 2026-08-26 (owner supplied a Craft Creations Corner photo same day)_
+_Last updated: 2026-08-26 (owner supplied real photos for the last 3 outstanding attractions same day — all 11 of 11 now have photos)_
 
 This document lets any person or AI tool pick up this project where it was left
 off. Read this first, then `INSTRUCTIONS.md` for how to build/edit/deploy.
@@ -30,8 +30,9 @@ rodeos across Texas. It is replacing the owner's old **Wix** site at
 - Content + pricing sourced from the owner's GroovePages draft and a print flyer.
 - Attractions page = the 11 stations from the flyer (headline, category, ages, description).
 - Real brand logo in header/footer (traced from the flyer — owner decided to keep it, see Decisions).
-- Real photos wired into Home, Photos, About, and 9 of the 11 Attractions cards
-  on `booths.html`.
+- Real photos wired into Home, Photos, About, and **all 11 of 11** Attractions
+  cards on `booths.html` — see section 5 for a note on the last 3, which
+  weren't sourced from Drive.
 - All 11 attraction videos are real YouTube embeds on `videos.html`; `booths.html`
   plays the same videos in an on-page popup instead of linking out.
 - Contact form wired to Netlify Forms; social links finalized (real Facebook,
@@ -45,8 +46,8 @@ rodeos across Texas. It is replacing the owner's old **Wix** site at
   content-accuracy caveats the owner should be aware of.
 - Git repo initialized; ready to push to GitHub and deploy on Netlify.
 
-**In progress / not done — see TODO (section 7). Remaining items: photos for 2
-attractions (outstanding, needs owner action), go live on GitHub/Netlify/domain.**
+**In progress / not done — see TODO (section 7). Remaining items: go live on
+GitHub/Netlify/domain (the attraction-photo gap is now fully resolved).**
 
 ## 3. Tech + structure
 
@@ -77,10 +78,11 @@ contact.html    Contact/booking
 
 ## 5. Photos
 
-- The site now uses **31 curated, web-optimized images** in `images/` (named by
+- The site now uses **33 curated, web-optimized images** in `images/` (named by
   meaning, e.g. `hero-kids-planting.jpg`, `saddle-up.jpg`, `scarecrow.jpg`,
-  `tractor-real.jpg`, `animal-goats-lambs.jpg`, `craft-creations.jpg`). New
-  images follow the project convention: ~1400px max width, JPEG quality ~82.
+  `tractor-real.jpg`, `animal-goats-lambs.jpg`, `craft-creations.jpg`,
+  `ropin-roundup.jpg`, `pooper-scooper.jpg`). New images follow the project
+  convention: ~1400px max width, JPEG quality ~82.
 - The owner also dropped their **entire Wix media library** (~35 raw files, hash
   names, some duplicates + AI-generated logos + a screenshot) into `images/`.
   Those raw files are **git-ignored** (see `.gitignore`) so they do NOT bloat the
@@ -89,14 +91,21 @@ contact.html    Contact/booking
 - The owner can safely delete the raw dump from `images/` locally at any time; the
   tracked curated copies are independent.
 - **Attractions page (`booths.html`):** each `.attraction` card has a photo slot
-  (`.a-photo`) above the text. **9 of 11** attractions have a real photo wired
-  in: Tractor Track and Trots, Saddle Up Station, Kernel Corn-struction Zone,
-  Boots/Scoots & Photo Shoots, FarmTastic Corral, Joyful Noise Junction,
-  Sprout & Grow Garden, Scarecrow Creation Station, and (2026-08-26, photo
-  supplied directly by the owner) Craft Creations Corner
-  (`craft-creations.jpg`). The remaining 2 (Ropin' Roundup, Pooper Scooper
-  Trooper) show a "📷 Photo coming soon" placeholder card (`.a-photo--soon`)
-  — this is an **outstanding item, see section 7**.
+  (`.a-photo`) above the text. **All 11 of 11** attractions now have a real
+  photo wired in. The original 8 (Tractor Track and Trots, Saddle Up Station,
+  Kernel Corn-struction Zone, Boots/Scoots & Photo Shoots, FarmTastic Corral,
+  Joyful Noise Junction, Sprout & Grow Garden, Scarecrow Creation Station) came
+  from the owner's Google Drive; the last 3 — Craft Creations Corner
+  (`craft-creations.jpg`), Ropin' Roundup (`ropin-roundup.jpg`), and Pooper
+  Scooper Trooper (`pooper-scooper.jpg`) — were sent directly by the owner in
+  conversation on 2026-08-26, since Drive had no usable shot for any of them.
+  Two of those three (Ropin' Roundup, Pooper Scooper Trooper) are photos of
+  the booth/backdrop and props (life-like steer, toy animals and cleanup
+  tools) rather than a kid actively using the attraction — still real,
+  on-brand shots of the actual booths, just without action in frame. The
+  `.a-photo--soon` placeholder (`.attraction .a-photo--soon` CSS rule) is no
+  longer used anywhere but is left in `styles.css` in case a future
+  attraction ever needs it again.
 - **Photo gallery pages (NEW, 2026-08-26):** `photos.html` is a `.category-grid`
   of 12 `.category-tile` cards — the same 11 attractions as `booths.html`, plus
   a 12th "Animal Encounters" category — each linking to a dedicated
@@ -107,13 +116,13 @@ contact.html    Contact/booking
   `photos-scarecrow.html`, `photos-pooper-scooper.html`,
   `photos-craft-creations.html`, `photos-animal-encounters.html`). Each gallery
   page shows every real photo currently available for that category using the
-  existing `.gallery`/`figure` pattern; the 2 categories with no photos yet
-  (Ropin' Roundup, Pooper Scooper Trooper) render an honest empty state
-  (`.photos-soon`, "📷 No photos yet for this attraction — check back soon!")
-  rather than being padded with unrelated images. Craft Creations Corner
-  shipped thin (only `photos.html`/`photos-craft-creations.html`/`booths.html`
-  linked a "coming soon" placeholder) but got its first real photo the same
-  day, supplied directly by the owner rather than sourced from Drive. New CSS
+  existing `.gallery`/`figure` pattern. All 12 categories now have at least
+  one real photo — Craft Creations Corner, Ropin' Roundup, and Pooper Scooper
+  Trooper all shipped with the empty `.photos-soon` "coming soon" state at
+  first, then got their first real photos the same day (2026-08-26), supplied
+  directly by the owner rather than sourced from Drive. The `.photos-soon`
+  empty state is no longer used anywhere but is left in `styles.css` in case
+  a future category ever needs it again. New CSS
   added to `styles.css`: `.category-grid` / `.category-tile` (+`.cat-img`,
   `.cat-img--soon`, `.cat-body`, `.cat-count`), `.photos-soon`, and `.back-link`.
   Sourcing: the owner's Google Drive ("Farmtastic 2026" → "Pictures for web")
@@ -180,9 +189,10 @@ contact.html    Contact/booking
   left unchanged as a standalone full-video grid. This popup is the one place
   in the project using vanilla JS (inline in `booths.html`, ~30 lines).
 - **Photos on Netlify:** yes — served from the repo via Git. Good at this scale.
-- **Attractions page photos:** RESOLVED for 9 of 11 stations (see section 5).
-  The remaining 2 (Ropin' Roundup, Pooper Scooper Trooper) are an
-  **outstanding item — see section 7**.
+- **Attractions page photos — FULLY RESOLVED (2026-08-26):** all 11 of 11
+  stations now have a real photo (see section 5 for which 3 were supplied
+  directly by the owner rather than sourced from Drive, and the note that 2
+  of those 3 show the booth/props rather than a kid in action).
 - **Photo gallery category pages — DONE (2026-08-26):** see section 5 for the
   full writeup, including the two content-accuracy caveats (Animal Encounters
   third-party-vendor branding; Saddle Up Station prop-vs-pony mismatch) that
@@ -202,21 +212,12 @@ contact.html    Contact/booking
 
 ## 7. TODO (pick up here)
 
-1. **⚠️ OUTSTANDING — Attraction photos still missing for 2 stations.** Ropin'
-   Roundup and Pooper Scooper Trooper each show a "📷 Photo coming soon"
-   placeholder on `booths.html` (and on their `photos-*.html` gallery pages)
-   instead of a real photo. The owner's Google Drive was searched (through
-   Aug 2026) and does **not** currently contain a populated/action shot of
-   kids actually using these 2 booths — only empty/staged shots existed,
-   which weren't a good fit. **This needs the owner to supply new photos**
-   (from a future event, or ones not yet uploaded to Drive); it is not
-   solvable by searching the existing material harder. (Craft Creations
-   Corner was in this same boat until 2026-08-26, when the owner sent a real
-   photo directly in conversation — see `craft-creations.jpg`.) Once photos
-   exist: optimize to ~1400px/quality 82 (see `INSTRUCTIONS.md`), add to
-   `images/` + a `.gitignore` allow-line, and add a real `<figure>` to that
-   category's `photos-*.html` gallery (and swap the `.a-photo--soon` div on
-   `booths.html` — see the 9 already-wired cards for the exact pattern).
+1. **Optional / cosmetic — Ropin' Roundup and Pooper Scooper Trooper show
+   booth/prop photos, not action shots.** Both are real, on-brand photos of
+   the actual attractions (see section 5), so this isn't broken — just worth
+   swapping for a candid kid-in-action shot if/when the owner has one from a
+   future event. Same optimize-and-swap pattern as before (see the other 9
+   cards for reference).
 2. **Confirm the Animal Encounters vendor question with the owner** (section 5)
    — is it OK for the site to show petting-zoo photos that appear to be from a
    separate vendor's booth ("Texan Petting Zoo" branding visible in source
