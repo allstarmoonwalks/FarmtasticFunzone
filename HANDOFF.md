@@ -1,6 +1,6 @@
 # Farmtastic Fun Zone — Project Handoff
 
-_Last updated: 2026-08-25_
+_Last updated: 2026-08-26_
 
 This document lets any person or AI tool pick up this project where it was left
 off. Read this first, then `INSTRUCTIONS.md` for how to build/edit/deploy.
@@ -16,6 +16,9 @@ rodeos across Texas. It is replacing the owner's old **Wix** site at
 
 - **No framework, no build step.** Plain HTML + one shared `styles.css`. Open
   any `.html` file in a browser and it just works.
+- **One deliberate exception:** `booths.html` has a small vanilla-JS video
+  lightbox/modal (see section 6). This is the only JavaScript anywhere in the
+  project — keep it that way unless there's a strong reason to add more.
 - **Owner / contacts:** April and Steve. Phone 936-223-1433,
   farmtasticfunzone@gmail.com, Montgomery, Texas (statewide travel).
 - **Tagline:** "Sowing Wisdom for the Harvest."
@@ -27,13 +30,19 @@ rodeos across Texas. It is replacing the owner's old **Wix** site at
 - Content + pricing sourced from the owner's GroovePages draft and a print flyer.
 - Attractions page = the 11 stations from the flyer (headline, category, ages, description).
 - Real brand logo in header/footer (traced from the flyer — owner decided to keep it, see Decisions).
-- Real photos wired into Home, Photos, About, and — as of this update — 8 of the
-  11 Attractions cards on `booths.html`.
+- Real photos wired into Home, Photos, About, and 8 of the 11 Attractions cards
+  on `booths.html`.
 - All 11 attraction videos are real YouTube embeds on `videos.html`; `booths.html`
   plays the same videos in an on-page popup instead of linking out.
 - Contact form wired to Netlify Forms; social links finalized (real Facebook,
   no Instagram/TikTok); full "Vintage County Fair" visual redesign shipped
   site-wide.
+- **Photo gallery rebuilt as category pages (2026-08-26):** `photos.html` is now
+  a clickable grid of 12 category tiles — the 11 attractions plus a bonus
+  "Animal Encounters" category — instead of one flat 12-photo gallery. Each
+  tile links to its own `photos-<slug>.html` page showing every real photo
+  available for that category. See section 5 for full detail, including two
+  content-accuracy caveats the owner should be aware of.
 - Git repo initialized; ready to push to GitHub and deploy on Netlify.
 
 **In progress / not done — see TODO (section 7). Remaining items: photos for 3
@@ -43,13 +52,14 @@ attractions (outstanding, needs owner action), go live on GitHub/Netlify/domain.
 
 Static HTML/CSS. One page = one `.html` file. The header nav and footer are
 **duplicated in every page** (no includes), so a nav/footer change must be made
-in all 7 files. Shared look lives in `styles.css` (design tokens in `:root`).
+in every file. Shared look lives in `styles.css` (design tokens in `:root`).
 
 ```
 index.html      Home            styles.css      all styling (CSS custom props in :root)
 booths.html     Attractions     images/         logos + curated web photos (see below)
 pricing.html    Pricing         README.md       repo readme + deploy quickstart
-photos.html     Photo gallery   HANDOFF.md      this file
+photos.html     Photo categories  HANDOFF.md    this file
+photos-*.html   12 photo galleries (one per category — see section 5)
 videos.html     Videos          INSTRUCTIONS.md how to edit/deploy/add content
 about.html      About & Mission netlify.toml    Netlify config (no build, publish = ".")
 contact.html    Contact/booking
@@ -67,29 +77,78 @@ contact.html    Contact/booking
 
 ## 5. Photos
 
-- The site uses **16 curated, web-optimized images** in `images/` (named by
+- The site now uses **30 curated, web-optimized images** in `images/` (named by
   meaning, e.g. `hero-kids-planting.jpg`, `saddle-up.jpg`, `scarecrow.jpg`,
-  `kernel-corn.jpg`, `farmtastic-corral.jpg`, `joyful-noise.jpg`). New images
-  follow the project convention: ~1400px max width, JPEG quality ~82.
+  `tractor-real.jpg`, `animal-goats-lambs.jpg`). New images follow the project
+  convention: ~1400px max width, JPEG quality ~82.
 - The owner also dropped their **entire Wix media library** (~35 raw files, hash
   names, some duplicates + AI-generated logos + a screenshot) into `images/`.
   Those raw files are **git-ignored** (see `.gitignore`) so they do NOT bloat the
-  repo or Netlify deploy. Only the curated names + logos are tracked.
+  repo or Netlify deploy. Only the curated names + logos are tracked (add a new
+  `!images/<name>` allow-line in `.gitignore` whenever a new curated image is added).
 - The owner can safely delete the raw dump from `images/` locally at any time; the
   tracked curated copies are independent.
-- **Attractions page (2026-08-25):** each `.attraction` card on `booths.html` now
-  has a photo slot (`.a-photo`) above the text. **8 of 11** attractions have a
-  real photo wired in: Tractor Track and Trots, Saddle Up Station, Kernel
-  Corn-struction Zone, Boots/Scoots & Photo Shoots, FarmTastic Corral, Joyful
-  Noise Junction, Sprout & Grow Garden, Scarecrow Creation Station. The
-  remaining 3 (Ropin' Roundup, Pooper Scooper Trooper, Craft Creations Corner)
-  show a "📷 Photo coming soon" placeholder card (`.a-photo--soon`) — this is an
-  **outstanding item, see section 7**.
+- **Attractions page (`booths.html`):** each `.attraction` card has a photo slot
+  (`.a-photo`) above the text. **8 of 11** attractions have a real photo wired in:
+  Tractor Track and Trots, Saddle Up Station, Kernel Corn-struction Zone,
+  Boots/Scoots & Photo Shoots, FarmTastic Corral, Joyful Noise Junction,
+  Sprout & Grow Garden, Scarecrow Creation Station. The remaining 3 (Ropin'
+  Roundup, Pooper Scooper Trooper, Craft Creations Corner) show a "📷 Photo
+  coming soon" placeholder card (`.a-photo--soon`) — this is an **outstanding
+  item, see section 7**.
+- **Photo gallery pages (NEW, 2026-08-26):** `photos.html` is a `.category-grid`
+  of 12 `.category-tile` cards — the same 11 attractions as `booths.html`, plus
+  a 12th "Animal Encounters" category — each linking to a dedicated
+  `photos-<slug>.html` page (`photos-tractor-track.html`,
+  `photos-saddle-up.html`, `photos-kernel-corn.html`, `photos-cowboy-kids.html`,
+  `photos-farmtastic-corral.html`, `photos-joyful-noise.html`,
+  `photos-sprout-grow.html`, `photos-ropin-roundup.html`,
+  `photos-scarecrow.html`, `photos-pooper-scooper.html`,
+  `photos-craft-creations.html`, `photos-animal-encounters.html`). Each gallery
+  page shows every real photo currently available for that category using the
+  existing `.gallery`/`figure` pattern; the 3 categories with no photos yet
+  (Ropin' Roundup, Pooper Scooper Trooper, Craft Creations Corner) render an
+  honest empty state (`.photos-soon`, "📷 No photos yet for this attraction —
+  check back soon!") rather than being padded with unrelated images. New CSS
+  added to `styles.css`: `.category-grid` / `.category-tile` (+`.cat-img`,
+  `.cat-img--soon`, `.cat-body`, `.cat-count`), `.photos-soon`, and `.back-link`.
+  Sourcing: the owner's Google Drive ("Farmtastic 2026" → "Pictures for web")
+  was searched thoroughly and ~96 real candidate photos were reviewed visually
+  (most of the folder is signage/rules-board shots, not candid photos, so
+  several categories ended up thin — the owner explicitly approved shipping
+  thin categories rather than waiting for more material).
+  - **⚠️ Animal Encounters — third-party vendor caveat.** The photos used for
+    this bonus category (goats, lambs, a camel, an alpaca, a kangaroo, a fawn,
+    hatching chicks, etc.) come from a petting-zoo booth in the Drive photos
+    that is visibly branded "Texan Petting Zoo" in at least one shot — this
+    looks like a **separate vendor's booth** at the same event, not a
+    FarmTastic-owned attraction. This was flagged to the owner, who explicitly
+    chose to proceed and publish the category anyway. **Worth confirming with
+    the owner** whether Animal Encounters should stay framed as "a rotating
+    petting-zoo experience featured alongside our attractions" (as currently
+    worded) or be removed/reworded if it turns out FarmTastic doesn't want to
+    associate itself with a vendor it doesn't run.
+  - **Saddle Up Station — real booth vs. photo mismatch (findings, not yet
+    acted on).** The real event photos found in Drive show the actual Saddle
+    Up Station booth using a **stationary horse/saddle prop**, not a live
+    pony — one candidate photo showed the real FarmTastic prop booth (but with
+    no rider visible in a usable frame), and another showed what looks like a
+    **different vendor's** live real-pony-ride concession, not FarmTastic's
+    booth. Given both candidates were flawed, the owner chose to **keep the
+    existing stock photo** (`saddle-up.jpg`) rather than swap in either. No
+    action needed unless the owner later supplies a clean real photo of a kid
+    at the actual prop-saddle booth.
+  - **Orphaned image:** `ring-toss.jpg` (previously captioned "Fair Games" in
+    the old flat gallery) doesn't map to any of the 11 attraction categories
+    and is **no longer displayed anywhere** on the site. It's still tracked in
+    `images/` and `.gitignore`-allowed in case it's useful later (e.g. a future
+    general "Fair Day" misc-photos category), but nothing currently links to
+    it.
 
 ## 6. Key decisions & open questions
 
-- **Visual redesign — DONE (2026-08-25):** full "Vintage County Fair" restyle applied
-  site-wide via `styles.css` (shared across all 7 pages, no per-page HTML rewrites
+- **Visual redesign — DONE:** full "Vintage County Fair" restyle applied
+  site-wide via `styles.css` (shared across all pages, no per-page HTML rewrites
   needed beyond a font link + one decorative div per page). Additions:
   - New Google Font **"Rye"** (`--font-display`) for eyebrow tags, ribbon badges,
     and pills — a rustic hand-painted-sign feel. Headings stay on Baloo 2/Nunito
@@ -103,62 +162,66 @@ contact.html    Contact/booking
     hero and the next section; also used as the bottom edge of every
     `.page-banner` and the top edge of the footer via `::after`/`::before`).
   - Corner-fold "paper tab" accent (`::after` pseudo-element, cream-2 color) on
-    `.card`, `.attraction`, `.price-card`, `.feature`, `.contact-info`, and
-    `form.contact-form` — no HTML changes required.
+    `.card`, `.attraction`, `.price-card`, `.feature`, `.contact-info`,
+    `form.contact-form`, and (new) `.category-tile` — no HTML changes required.
   - `.tag` (homepage attraction highlights) and `.price-table .pill`
     (Popular/Best Value) reshaped into ribbon/banner badges via `clip-path`.
-  - Footer restyled as a barn-wood plank gradient with a rope-stitched top edge
-    (previously flat dark brown).
+  - Footer restyled as a barn-wood plank gradient with a rope-stitched top edge.
   - Buttons got a subtle inset "carved sign" ring and a slight tilt-on-hover.
-  All changes are pure CSS/HTML (plus one small SVG data-URI per motif) — no new
-  build step, no external image assets, consistent with the project's
-  no-framework approach. Verified with Playwright screenshots (desktop + mobile,
-  all 7 pages) before committing; no regressions to the video popup modal
-  (2026-08-25 feature) or mobile nav.
-
-- **Videos:** hosted on **YouTube** (owner decided against Vimeo — 2026-08-25),
-  embedded on `videos.html`. Do NOT host full videos in the repo/Netlify
-  (bandwidth + file-size).
-- **Attractions-page video links (2026-08-25):** "Watch the video" on `booths.html`
-  now opens the attraction's video in a popup/lightbox on that same page (autoplay,
-  closable via ✕/backdrop/Escape) instead of navigating to `videos.html`.
-  `videos.html` itself is untouched — it still lists all 11 videos in the grid.
-  This is the one place in the project that uses a small vanilla-JS snippet
-  (inline in `booths.html`, ~30 lines) rather than pure CSS; everything else
-  (mobile nav) stays JS-free.
+  Verified with Playwright screenshots (desktop + mobile) before committing.
+- **Videos:** hosted on **YouTube** (not Vimeo), embedded via
+  `youtube-nocookie.com/embed/<ID>` on `videos.html` (all 11 real videos are
+  live there). `booths.html` plays the same videos in a JS popup/lightbox
+  instead of linking to `videos.html`; `videos.html` itself was deliberately
+  left unchanged as a standalone full-video grid. This popup is the one place
+  in the project using vanilla JS (inline in `booths.html`, ~30 lines).
 - **Photos on Netlify:** yes — served from the repo via Git. Good at this scale.
-- **Attractions page photos — RESOLVED for 8 of 11 (2026-08-25):** see section 5
-  for exactly which. The remaining 3 (Ropin' Roundup, Pooper Scooper Trooper,
-  Craft Creations Corner) are an **outstanding item that needs to be fixed** —
-  see section 7, item 1.
-- **Logo — DECIDED (2026-08-25):** keeping the traced logo (`logo.png` /
-  `logo_light.png`) already in header/footer. Owner reviewed the alternatives
-  in the raw dump (green circle badge, barn/tractor badge, two AI-generated
-  cow-face badges) and chose to stick with the current traced version. No
-  file changes needed.
+- **Attractions page photos:** RESOLVED for 8 of 11 stations (see section 5).
+  The remaining 3 (Ropin' Roundup, Pooper Scooper Trooper, Craft Creations
+  Corner) are an **outstanding item — see section 7**.
+- **Photo gallery category pages — DONE (2026-08-26):** see section 5 for the
+  full writeup, including the two content-accuracy caveats (Animal Encounters
+  third-party-vendor branding; Saddle Up Station prop-vs-pony mismatch) that
+  are worth a conversation with the owner even though both were shipped per
+  the owner's explicit go-ahead.
+- **Logo (RESOLVED):** owner decided to keep the current traced logo
+  (`logo.png` / `logo_light.png`, traced from the flyer) rather than swap in one
+  of the raw official logo files from the Wix dump. No further action needed.
+- **Social links (RESOLVED):** real Facebook profile URL
+  (`https://www.facebook.com/profile.php?id=61583006674823`) is in the footer on
+  all pages. Owner does not use Instagram or TikTok, so those icons/links were
+  removed entirely (not just left blank).
 - **"12 vs 11" attractions:** the promo flyer says "12 Educational Farm Experiences"
   but the detail flyer lists only 11. Possible missing 12th — unconfirmed with owner.
+  (Not the same thing as the new "Animal Encounters" photo category, which is a
+  bonus 12th *photo* category, not a claim that FarmTastic runs a 12th attraction.)
 
 ## 7. TODO (pick up here)
 
-1. **⚠️ OUTSTANDING — photos still missing for 3 attractions.** Ropin' Roundup,
-   Pooper Scooper Trooper, and Craft Creations Corner each show a "📷 Photo
-   coming soon" placeholder on `booths.html` instead of a real photo. The
-   owner's Google Drive was searched (2026-08-25) and does **not** currently
-   contain a populated/action shot of kids actually using these 3 booths —
-   only empty/staged booth photos exist there, which weren't a good fit.
-   **This needs the owner to supply new photos** (e.g. from a future event, or
-   ones not yet uploaded to Drive); it's not solvable by searching the existing
-   material harder. Once photos exist: optimize to ~1400px/quality 82 (see
-   `INSTRUCTIONS.md`), add to `images/` plus a `.gitignore` allow-line, and
-   swap the `.a-photo--soon` div for a real `<div class="a-photo"><img ...></div>`
-   in `booths.html` (see the 8 already-wired cards for the exact pattern).
-2. **Optional / lower priority:** revisit the 12 gallery captions on
-   `photos.html` for possibly better/more specific photos from Drive — this was
-   deferred mid-session in favor of the attraction-photo work above and hasn't
-   been resumed.
+1. **⚠️ OUTSTANDING — Attraction photos still missing for 3 stations.** Ropin'
+   Roundup, Pooper Scooper Trooper, and Craft Creations Corner each show a
+   "📷 Photo coming soon" placeholder on `booths.html` (and on their
+   `photos-*.html` gallery pages) instead of a real photo. The owner's Google
+   Drive was searched (through Aug 2026) and does **not** currently contain a
+   populated/action shot of kids actually using these 3 booths — only
+   empty/staged shots existed, which weren't a good fit. **This needs the
+   owner to supply new photos** (from a future event, or ones not yet
+   uploaded to Drive); it is not solvable by searching the existing material
+   harder. Once photos exist: optimize to ~1400px/quality 82 (see
+   `INSTRUCTIONS.md`), add to `images/` + a `.gitignore` allow-line, and add a
+   real `<figure>` to that category's `photos-*.html` gallery (and swap the
+   `.a-photo--soon` div on `booths.html` — see the 8 already-wired cards for
+   the exact pattern).
+2. **Confirm the Animal Encounters vendor question with the owner** (section 5)
+   — is it OK for the site to show petting-zoo photos that appear to be from a
+   separate vendor's booth ("Texan Petting Zoo" branding visible in source
+   photos), framed as "featured alongside our attractions"? If not, the
+   category should be reworded or removed from `photos.html` and
+   `photos-animal-encounters.html`.
 3. **Confirm the "12 vs 11" attraction discrepancy** with the owner (section 6).
-4. **Go live** — push to GitHub, connect Netlify, point the domain, retire Wix.
+4. **Go live** — push to GitHub (repo is up to date locally; owner runs
+   `git push`), connect Netlify, point the domain, retire Wix. Contact form
+   submissions won't work until the site is actually deployed on Netlify.
 
 ## 8. Environment quirks (for AI tools working via a mounted folder)
 
