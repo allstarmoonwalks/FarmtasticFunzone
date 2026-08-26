@@ -316,21 +316,15 @@ contact.html    Contact/booking
 7. **Optional — upgrade `pricing.html`'s "Build Your Adventure" tiles to use
    the same deck-artwork zone icons** as `booths.html`, instead of emoji, for
    full visual consistency between the two pages.
-8. **SEO follow-ups that need the owner's input** (see section 8 for full
-   context):
-   - The 12 photo-category pages are thin content (~95-100 words each,
-     mostly boilerplate) — consider adding a short unique paragraph to each,
-     or accept it since they're supporting gallery pages, not primary
-     landing pages.
-   - `HANDOFF.md`, `INSTRUCTIONS.md`, `README.md`, and `netlify.toml` are
-     tracked in git and will be publicly deployed (Netlify `publish = "."`)
-     — `robots.txt` now blocks crawlers from them, but they're still
-     directly fetchable by URL. If that's not okay, the real fix is
-     restructuring the repo so the publish directory only contains the
-     public site files.
-   - Confirm `www.farmtasticfunzone.com` (not the bare apex domain) is the
-     intended canonical host before going live — all canonical/OG URLs and
-     the sitemap assume `www`.
+8. ~~SEO follow-ups that need the owner's input~~ — **both resolved
+   2026-08-26** (see section 8's "Follow-up fixes" for full detail):
+   - ~~Thin photo-category page content~~ — done. Each of the 12 pages now
+     has a real, unique paragraph.
+   - ~~Internal `.md` docs publicly deployable~~ — done. A Netlify
+     `_redirects` file now force-404s them.
+   - Still open / owner's call: confirm `www.farmtasticfunzone.com` (not the
+     bare apex domain) is the intended canonical host before going live —
+     all canonical/OG URLs and the sitemap assume `www`.
    - After launch: submit `sitemap.xml` to Google Search Console / Bing
      Webmaster Tools, and verify the OG image/rich result renders correctly
      with each platform's own preview debugger (Facebook Sharing Debugger,
@@ -382,6 +376,47 @@ What was missing, and is now fixed on all 19 pages:
 Not changed (flagged as follow-ups instead, see the TODO above): the thin
 content on photo-category pages, and whether to restructure the deploy so
 the internal `.md` docs aren't publicly reachable at all.
+
+### Follow-up fixes (2026-08-26, same day)
+
+The owner said "address both" in response to the two SEO items flagged above
+that needed a decision rather than being fixed unilaterally. Both are done:
+
+- **Thin photo-category content.** Each of the 12 `photos-<slug>.html` pages
+  now has a `.gallery-copy` block (new CSS in `styles.css`) with a real
+  paragraph, placed between the photo gallery and the "Book Your Fair" CTA.
+  For the 11 pages with a matching attraction in `booths.html`, the copy is
+  the owner-approved attraction description, lightly reworded so it isn't a
+  verbatim duplicate of the `booths.html` text. Animal Encounters (no
+  `booths.html` counterpart) got its own paragraph that stays consistent with
+  the existing "rotating petting-zoo experience featured alongside our
+  attractions" framing — it does not claim the animals are a FarmTastic-owned
+  attraction, since that's still an open question (see section 5's vendor
+  caveat and TODO item 2 above).
+- **Internal docs publicly deployable.** Rather than the heavier fix of
+  restructuring the whole repo into a `public/`-style subfolder (which would
+  have meant moving every HTML file and the entire `images/` folder and
+  updating every relative path — high risk for a static site with no build
+  step), this uses Netlify's `_redirects` file with the forced-redirect
+  (`!`) flag:
+  ```
+  /HANDOFF.md       /404.html  404!
+  /INSTRUCTIONS.md  /404.html  404!
+  /README.md        /404.html  404!
+  /netlify.toml     /404.html  404!
+  /_redirects       /404.html  404!
+  ```
+  The `!` makes Netlify return this rule's result *even though a matching
+  file exists* at that path — so once deployed, a request to
+  `/HANDOFF.md` gets a genuine HTTP 404, not the actual file content. This is
+  a stronger guarantee than the earlier `robots.txt` disallow (which only
+  asks well-behaved crawlers not to index the page — it doesn't stop a
+  direct visit to the URL). The files stay tracked in git (so the repo keeps
+  working as a single no-build, `publish = "."` Netlify site), they're just
+  not fetchable once live. Added a matching `404.html` (on-brand, same
+  header/footer/nav as the rest of the site) since the site didn't have a
+  custom 404 page before — Netlify serves it automatically for any 404,
+  including these forced ones.
 
 ## 9. Environment quirks (for AI tools working via a mounted folder)
 
