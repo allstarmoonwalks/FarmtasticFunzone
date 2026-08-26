@@ -258,6 +258,32 @@ contact.html    Contact/booking
     the deck's placeholder contact info on its closing slide (email@
     farmtasticfunzone.com / (555) 123-4567) was **not** used anywhere; the
     site's real contact info was left untouched everywhere.
+- **Deck artwork reused as real image assets (2026-08-26):** rendered the
+  deck's own PDF pages to images (`pdftoppm`, 200dpi) and cropped/optimized
+  pieces of the actual illustrations into the site, rather than just imitating
+  their layout:
+  - **Home page hero background (`index.html`):** the deck's cover-slide farm
+    illustration (barn, kids on tractors, hay bales, chickens, sheep), cropped
+    to remove the deck's own baked-in "Farmtastic Fun Zone" logo/title text
+    (which would have visually collided with the site's real H1), saved as
+    `images/hero-farm-scene.jpg`. The hero section was restructured from a
+    two-column text+photo grid into a full-bleed background-image banner with
+    a warm dark scrim (`rgba(43,32,10,.6)`) so the white/gold hero text stays
+    readable; the "Serving Texas" ribbon sticker now floats independently
+    (`.hero-sticker`) instead of pinning to the old photo card. The old
+    `.hero-media`/`.hero-grid` two-column CSS is still in place, unused by
+    `index.html` now but still relied on by `about.html`'s family photo — do
+    not delete it.
+  - **Attractions page zone icons (`booths.html`):** the deck's "Your Guided
+    Tour of the Farmtastic Fun Zone" slide has its own hand-drawn icon per
+    zone (hobby horse, graduation cap, paintbrush+corn, Polaroid camera).
+    Each was cropped out individually and saved as `images/zone-icon-*.jpg`,
+    then swapped in for the plain emoji in both the `.zone-path` medallions
+    (top nav) and the big `.zone-divider` banner icons — same zone-color
+    coding, now with real deck artwork instead of emoji. `pricing.html`'s
+    "Build Your Adventure" tiles still use emoji for their icons (out of
+    scope for this pass — only the Attractions page was asked for); revisit
+    if the owner wants those upgraded to match too.
 
 ## 7. TODO (pick up here)
 
@@ -283,9 +309,13 @@ contact.html    Contact/booking
    submissions won't work until the site is actually deployed on Netlify.
 6. **Optional — any more pitch-deck ideas left to mine?** Three deck-derived
    additions are now live (4-zone regroup, guided-tour zone path, Complete
-   Balanced Experience block, Build Your Adventure blocks) — the deck's
-   remaining slides are mostly restating the same zones/attractions, but
-   worth a second pass if the owner wants more.
+   Balanced Experience block, Build Your Adventure blocks), plus the deck's
+   own artwork is now used for the home hero background and the Attractions
+   page zone icons — the deck's remaining slides are mostly restating the
+   same zones/attractions, but worth a second pass if the owner wants more.
+7. **Optional — upgrade `pricing.html`'s "Build Your Adventure" tiles to use
+   the same deck-artwork zone icons** as `booths.html`, instead of emoji, for
+   full visual consistency between the two pages.
 
 ## 8. Environment quirks (for AI tools working via a mounted folder)
 
