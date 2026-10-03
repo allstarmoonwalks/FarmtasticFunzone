@@ -180,10 +180,10 @@ end $$;
 -- employees: only admins/managers manage the roster; everyone staff can read it
 drop policy if exists "Staff only" on employees;
 create policy "Staff read" on employees for select to authenticated using ((select public.is_staff()));
-create policy "Admin insert" on employees for insert to authenticated with check ((select public.is_admin()));
-create policy "Admin update" on employees for update to authenticated
+create policy "Admin write" on employees for all to authenticated
   using ((select public.is_admin())) with check ((select public.is_admin()));
-create policy "Admin delete" on employees for delete to authenticated using ((select public.is_admin()));
+-- NOTE: overlaps "Staff read" for SELECT (advisor: multiple_permissive_policies, INFO-level on a tiny table).
+-- Could be split into insert/update/delete policies later; matches what is applied in the live project.
 
 -- ── public lead capture (the ONLY thing the anon key can do) ─────────────────
 create or replace function public.submit_lead(
