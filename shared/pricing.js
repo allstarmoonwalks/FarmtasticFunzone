@@ -1,6 +1,6 @@
 /* Farmtastic Fun Zone — pricing rules as plain functions. Mirrors pricing.html.
    Works as a browser global (window.FarmPricing) and as a Node module.
-   TODO confirm with owner: is the 10+ day craft add-on a flat $400 per event (assumed here)? */
+   Craft Station add-on: $200/day under 10 days; flat $400 per event at 10+ days (confirmed by owner). */
 (function (root, factory) {
   if (typeof module === 'object' && module.exports) module.exports = factory();
   else root.FarmPricing = factory();

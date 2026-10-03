@@ -26,5 +26,5 @@ Hosting stays on Netlify (no VPS / Node server needed — SMS goes through a Sup
    AllStar `create-checkout` edge function + a server-side confirm step (see VPS `CLAUDE.md` security model).
 
 ## Open questions for the owner
-- Is the 10+ day Craft Station add-on a flat $400 per event (assumed) or per day?
+- ~~Craft Station add-on at 10+ days~~ — confirmed flat $400 per event.
 - Native iOS app: the PWA covers the crew use case; AllStar's Capacitor/SwiftUI wrappers can be added later.
