@@ -14,8 +14,8 @@ Hosting stays on Netlify (no VPS / Node server needed — SMS goes through a Sup
 | Pricing | `shared/pricing.js` | Same grid as `pricing.html`; `node shared/pricing.test.js`. |
 
 ## Go-live steps
-1. **Create a NEW Supabase project for Farmtastic.** Do NOT reuse the AllStar Moonwalks project.
-2. Run the migration in the SQL editor, then add staff:
+1. ~~Create a Supabase project~~ — done: **Farmtastic Fun Zone** (`ciydqepqhqfqhptpqily`, us-east-1, org LMX Rentals LLC). Separate from the AllStar Moonwalks project. Migration already applied and `shared/supabase-config.js` filled in.
+2. Add staff (SQL editor):
    `insert into employees(name,email,role) values ('April','…','admin'), ('Steve','…','admin');`
    and create their logins in Supabase Auth (Authentication → Users).
 3. Put the project URL + anon key in `shared/supabase-config.js`; commit and push (Netlify redeploys).

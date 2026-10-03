@@ -28,6 +28,7 @@ language sql stable security definer set search_path = public as $$
     where lower(email) = lower(auth.jwt() ->> 'email') and status = 'active' and role in ('admin','manager'));
 $$;
 revoke execute on function public.is_staff(), public.is_admin() from public;
+revoke execute on function public.is_staff(), public.is_admin() from anon;  -- Supabase grants anon by default
 grant execute on function public.is_staff(), public.is_admin() to authenticated, service_role;
 
 -- ── catalog ──────────────────────────────────────────────────────────────────
@@ -142,7 +143,7 @@ create index if not exists leads_status_idx on leads(status, created_at desc);
 create index if not exists events_dates_idx on events(start_date);
 
 -- updated_at
-create or replace function public.touch_updated_at() returns trigger language plpgsql as $$
+create or replace function public.touch_updated_at() returns trigger language plpgsql set search_path = public as $$
 begin new.updated_at = now(); return new; end $$;
 drop trigger if exists leads_touch on leads;  create trigger leads_touch  before update on leads  for each row execute function touch_updated_at();
 drop trigger if exists events_touch on events; create trigger events_touch before update on events for each row execute function touch_updated_at();

@@ -1,6 +1,6 @@
-/* Public Supabase settings for the Farmtastic project (anon key is safe to ship; RLS protects data).
-   Fill these in after creating the Farmtastic Supabase project and running supabase/migrations/. */
+/* Public Supabase settings for the Farmtastic Fun Zone project (ref ciydqepqhqfqhptpqily).
+   The publishable key is safe to ship: RLS keeps all data staff-only; anon can only call submit_lead(). */
 window.FARM_CONFIG = {
-  SUPABASE_URL: '',       // e.g. https://xxxx.supabase.co
-  SUPABASE_ANON_KEY: '',  // project's publishable/anon key
+  SUPABASE_URL: 'https://ciydqepqhqfqhptpqily.supabase.co',
+  SUPABASE_ANON_KEY: 'sb_publishable_nun1X7mbN_Rgv2_sXkG2lQ_WtF6AP2f',
 };
