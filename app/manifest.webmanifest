@@ -1,0 +1,12 @@
+{
+  "name": "Farmtastic Crew",
+  "short_name": "Farm Crew",
+  "start_url": "/app/",
+  "scope": "/app/",
+  "display": "standalone",
+  "background_color": "#fbf3e0",
+  "theme_color": "#6b4a2b",
+  "icons": [
+    { "src": "/images/apple-touch-icon.png", "sizes": "180x180", "type": "image/png", "purpose": "any" }
+  ]
+}

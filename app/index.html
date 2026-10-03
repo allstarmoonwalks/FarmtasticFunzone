@@ -1,0 +1,65 @@
+<!DOCTYPE html>
+<html lang="en"><head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="robots" content="noindex,nofollow"><meta name="theme-color" content="#6b4a2b">
+<link rel="manifest" href="manifest.webmanifest"><link rel="apple-touch-icon" href="../images/apple-touch-icon.png">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<title>Farmtastic Crew</title>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<style>
+:root{--cream:#fbf3e0;--ink:#2b200a;--barn:#a8321f;--wood:#6b4a2b;--line:#d9c9a0}
+*{box-sizing:border-box}body{margin:0;font:16px/1.45 system-ui,sans-serif;background:var(--cream);color:var(--ink);padding-bottom:70px}
+header{background:var(--wood);color:#fff;padding:calc(12px + env(safe-area-inset-top)) 16px 12px;display:flex;justify-content:space-between}
+main{padding:14px;max-width:640px;margin:auto}
+.card{background:#fff;border:1px solid var(--line);border-radius:12px;padding:14px;margin-bottom:12px}
+.pill{font-size:12px;background:#f1e4c3;border-radius:99px;padding:2px 8px}
+.btns{display:flex;gap:8px;margin-top:8px;flex-wrap:wrap}
+a.b,button.b{background:var(--barn);color:#fff;border:0;border-radius:10px;padding:10px 14px;text-decoration:none;font:inherit;font-weight:600}
+a.b.alt{background:#fff;color:var(--ink);border:1px solid var(--line)}
+nav{position:fixed;bottom:0;left:0;right:0;display:flex;background:#fff;border-top:1px solid var(--line);padding-bottom:env(safe-area-inset-bottom)}
+nav button{flex:1;border:0;background:none;padding:14px 0;font:inherit;font-weight:600}nav button.on{color:var(--barn)}
+input,textarea{font:inherit;width:100%;padding:10px;border:1px solid var(--line);border-radius:8px;margin:4px 0}
+.muted{color:#7a6a45;font-size:14px}.err{color:var(--barn)}
+</style></head><body>
+<header><b>🌾 Farmtastic Crew</b><span id="who"></span></header>
+<main id="view"><p class="muted">Loading…</p></main>
+<nav id="nav" hidden><button data-t="today" class="on">Events</button><button data-t="leads">Leads</button><button data-t="tasks">Tasks</button><button data-t="me">Me</button></nav>
+<script src="../shared/supabase-config.js"></script>
+<script src="../shared/crm-core.js"></script>
+<script>
+if('serviceWorker' in navigator)navigator.serviceWorker.register('sw.js').catch(()=>{});
+const $=id=>document.getElementById(id);let ME=null;
+const rows=async p=>{const {data,error}=await p;if(error){$('view').insertAdjacentHTML('afterbegin',`<p class="err">${esc(error.message)}</p>`);return[]}return data||[]};
+async function boot(){
+  const r=await requireStaff();
+  if(!r||r.error==='config'){$('view').innerHTML=`<form class="card" onsubmit="login(event)"><h3>Crew sign in</h3>${r?.error==='config'?'<p class="err">Not configured yet (shared/supabase-config.js).</p>':''}<input id="em" type="email" placeholder="Email" required><input id="pw" type="password" placeholder="Password" required><p id="le" class="err"></p><button class="b">Sign in</button></form>`;return}
+  if(r.error==='not-staff'){$('view').innerHTML=`<div class="card"><h3>No crew access</h3><p>${esc(r.user.email)} isn't an active crew member.</p><button class="b" onclick="signOut()">Sign out</button></div>`;return}
+  ME=r.employee;$('who').textContent=ME.name;$('nav').hidden=false;
+  $('nav').onclick=e=>{const t=e.target.dataset.t;if(!t)return;document.querySelectorAll('nav button').forEach(b=>b.classList.toggle('on',b===e.target));({today,leads,tasks,me})[t]()};
+  today();
+}
+async function login(e){e.preventDefault();try{await signIn($('em').value,$('pw').value);location.reload()}catch(x){$('le').textContent=x.message}}
+async function today(){
+  const d=new Date().toISOString().slice(0,10);
+  const ev=await rows(sb.from('events').select('*, event_attractions(attractions(name))').gte('end_date',d).in('status',['confirmed','tentative']).order('start_date').limit(20));
+  $('view').innerHTML=ev.map(e=>`<div class="card"><b>${esc(e.name)}</b> <span class="pill">${esc(e.status)}</span><br>${fmtDate(e.start_date)} – ${fmtDate(e.end_date)}<br>${esc([e.venue,e.city].filter(Boolean).join(', '))}
+   ${e.address?`<div class="btns"><a class="b alt" href="https://maps.google.com/?q=${encodeURIComponent(e.address+' '+(e.city||''))}">Directions</a></div>`:''}
+   ${e.load_in_notes?`<p class="muted">${esc(e.load_in_notes)}</p>`:''}
+   <p class="muted">${(e.event_attractions||[]).map(x=>esc(x.attractions?.name)).join(' · ')}</p></div>`).join('')||'<p class="muted">No upcoming events.</p>';
+}
+async function leads(){
+  const l=await rows(sb.from('leads').select('*').in('status',['new','contacted']).order('created_at',{ascending:false}));
+  $('view').innerHTML=`<div class="card"><b>Quick add lead</b><input id="ln" placeholder="Name"><input id="lp" type="tel" placeholder="Phone"><input id="lo" placeholder="Fair / organization"><button class="b" onclick="addLead()">Save</button></div>`+
+  l.map(x=>`<div class="card"><b>${esc(x.name)}</b> <span class="pill">${esc(x.status)}</span><br>${esc(x.organization)}<br><span class="muted">${esc(x.event_dates)} ${esc(x.booths_interest)}</span>
+   <div class="btns">${x.phone?`<a class="b" href="${telHref(x.phone)}">Call</a><a class="b alt" href="${smsHref(x.phone)}">Text</a>`:''}${x.email?`<a class="b alt" href="mailto:${esc(x.email)}">Email</a>`:''}${x.status==='new'?`<button class="b alt" onclick="mark('${x.id}')">Mark contacted</button>`:''}</div></div>`).join('');
+}
+async function addLead(){const name=$('ln').value.trim();if(!name)return;await rows(sb.from('leads').insert({name,phone:$('lp').value||null,organization:$('lo').value||null,source:'app'}));leads()}
+async function mark(id){await rows(sb.from('leads').update({status:'contacted'}).eq('id',id));leads()}
+async function tasks(){
+  const t=await rows(sb.from('tasks').select('*').eq('done',false).order('due_date'));
+  $('view').innerHTML=t.map(x=>`<div class="card"><label><input type="checkbox" onchange="done('${x.id}')" style="width:auto"> ${esc(x.title)}</label> <span class="muted">${fmtDate(x.due_date)}</span></div>`).join('')||'<p class="muted">All caught up.</p>';
+}
+async function done(id){await rows(sb.from('tasks').update({done:true}).eq('id',id));tasks()}
+function me(){$('view').innerHTML=`<div class="card"><b>${esc(ME.name)}</b><br>${esc(ME.email)}<br><span class="pill">${esc(ME.role)}</span><div class="btns"><button class="b" onclick="signOut()">Sign out</button></div><p class="muted">Tip: use Share → Add to Home Screen to install.</p></div>`}
+boot();
+</script></body></html>
