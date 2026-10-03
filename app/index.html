@@ -32,12 +32,13 @@ const $=id=>document.getElementById(id);let ME=null;
 const rows=async p=>{const {data,error}=await p;if(error){$('view').insertAdjacentHTML('afterbegin',`<p class="err">${esc(error.message)}</p>`);return[]}return data||[]};
 async function boot(){
   const r=await requireStaff();
-  if(!r||r.error==='config'){$('view').innerHTML=`<form class="card" onsubmit="login(event)"><h3>Crew sign in</h3>${r?.error==='config'?'<p class="err">Not configured yet (shared/supabase-config.js).</p>':''}<input id="em" type="email" placeholder="Email" required><input id="pw" type="password" placeholder="Password" required><p id="le" class="err"></p><button class="b">Sign in</button></form>`;return}
+  if(!r||r.error==='config'){$('view').innerHTML=`<form class="card" onsubmit="login(event)"><h3>Crew sign in</h3>${r?.error==='config'?'<p class="err">Not configured yet (shared/supabase-config.js).</p>':''}<input id="em" type="email" placeholder="Email" required><input id="pw" type="password" placeholder="Password" required><p id="le" class="err"></p><button class="b">Sign in</button> <button type="button" class="b alt" style="border:1px solid #d9c9a0;background:#fff;color:#2b200a" onclick="doReset()">Forgot / set password</button></form>`;return}
   if(r.error==='not-staff'){$('view').innerHTML=`<div class="card"><h3>No crew access</h3><p>${esc(r.user.email)} isn't an active crew member.</p><button class="b" onclick="signOut()">Sign out</button></div>`;return}
   ME=r.employee;$('who').textContent=ME.name;$('nav').hidden=false;
   $('nav').onclick=e=>{const t=e.target.dataset.t;if(!t)return;document.querySelectorAll('nav button').forEach(b=>b.classList.toggle('on',b===e.target));({today,leads,tasks,me})[t]()};
   today();
 }
+async function doReset(){try{await resetPassword($('em').value);$('le').style.color='#3f6b2f';$('le').textContent='Check your email for a link.'}catch(x){$('le').textContent=x.message}}
 async function login(e){e.preventDefault();try{await signIn($('em').value,$('pw').value);location.reload()}catch(x){$('le').textContent=x.message}}
 async function today(){
   const d=new Date().toISOString().slice(0,10);
