@@ -177,7 +177,7 @@
     var cfg=window.FARM_CONFIG||{}, d=new FormData(f), btn=f.querySelector('button[type=submit],button:not([type])');
     if(btn){btn.disabled=true;btn.textContent='Sending…';}
     var netlify=fetch('/',{method:'POST',headers:{'Content-Type':'application/x-www-form-urlencoded'},body:new URLSearchParams(d).toString()});
-    var crm=(cfg.SUPABASE_URL&&cfg.SUPABASE_ANON_KEY)?fetch(cfg.SUPABASE_URL+'/rest/v1/rpc/submit_lead',{method:'POST',
+    var crm=(cfg.SUPABASE_URL&&cfg.SUPABASE_ANON_KEY&&!d.get('bot-field'))?fetch(cfg.SUPABASE_URL+'/rest/v1/rpc/submit_lead',{method:'POST',
       headers:{'Content-Type':'application/json',apikey:cfg.SUPABASE_ANON_KEY,Authorization:'Bearer '+cfg.SUPABASE_ANON_KEY},
       body:JSON.stringify({p_name:d.get('name'),p_email:d.get('email'),p_phone:d.get('phone'),p_organization:d.get('organization'),
         p_event_dates:d.get('event_dates'),p_booths:d.get('booths'),p_message:d.get('message')})}):Promise.reject();

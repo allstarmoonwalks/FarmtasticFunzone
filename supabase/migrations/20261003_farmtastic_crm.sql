@@ -142,6 +142,25 @@ create table if not exists settings (key text primary key, value jsonb not null)
 create index if not exists leads_status_idx on leads(status, created_at desc);
 create index if not exists events_dates_idx on events(start_date);
 
+-- covering indexes for foreign keys
+create index if not exists activities_contact_idx on activities(contact_id);
+create index if not exists activities_event_idx on activities(event_id);
+create index if not exists activities_lead_idx on activities(lead_id);
+create index if not exists attractions_zone_idx on attractions(zone);
+create index if not exists contacts_org_idx on contacts(organization_id);
+create index if not exists event_attractions_attraction_idx on event_attractions(attraction_id);
+create index if not exists event_staff_employee_idx on event_staff(employee_id);
+create index if not exists events_contact_idx on events(contact_id);
+create index if not exists events_org_idx on events(organization_id);
+create index if not exists invoices_event_idx on invoices(event_id);
+create index if not exists leads_assigned_idx on leads(assigned_to);
+create index if not exists leads_contact_idx on leads(contact_id);
+create index if not exists leads_event_idx on leads(event_id);
+create index if not exists quotes_event_idx on quotes(event_id);
+create index if not exists tasks_assigned_idx on tasks(assigned_to);
+create index if not exists tasks_event_idx on tasks(event_id);
+create index if not exists tasks_lead_idx on tasks(lead_id);
+
 -- updated_at
 create or replace function public.touch_updated_at() returns trigger language plpgsql set search_path = public as $$
 begin new.updated_at = now(); return new; end $$;
@@ -161,8 +180,10 @@ end $$;
 -- employees: only admins/managers manage the roster; everyone staff can read it
 drop policy if exists "Staff only" on employees;
 create policy "Staff read" on employees for select to authenticated using ((select public.is_staff()));
-create policy "Admin write" on employees for all to authenticated
+create policy "Admin insert" on employees for insert to authenticated with check ((select public.is_admin()));
+create policy "Admin update" on employees for update to authenticated
   using ((select public.is_admin())) with check ((select public.is_admin()));
+create policy "Admin delete" on employees for delete to authenticated using ((select public.is_admin()));
 
 -- ── public lead capture (the ONLY thing the anon key can do) ─────────────────
 create or replace function public.submit_lead(
