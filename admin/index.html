@@ -1,0 +1,152 @@
+<!DOCTYPE html>
+<html lang="en"><head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="robots" content="noindex,nofollow">
+<title>Farmtastic CRM</title>
+<link rel="icon" href="../favicon.ico">
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<style>
+:root{--cream:#fbf3e0;--cream2:#f1e4c3;--ink:#2b200a;--barn:#a8321f;--green:#3f6b2f;--gold:#d99a1e;--wood:#6b4a2b;--line:#d9c9a0}
+*{box-sizing:border-box}body{margin:0;font:15px/1.45 system-ui,sans-serif;background:var(--cream);color:var(--ink)}
+header{background:var(--wood);color:#fff;display:flex;align-items:center;gap:16px;padding:10px 20px;flex-wrap:wrap}
+header h1{font-size:18px;margin:0;flex:1}header button{background:none;border:1px solid #fff8;color:#fff;border-radius:6px;padding:4px 10px;cursor:pointer}
+nav{display:flex;gap:4px;padding:8px 20px;background:var(--cream2);flex-wrap:wrap}
+nav button{border:0;background:none;padding:8px 14px;border-radius:8px;cursor:pointer;font-weight:600}
+nav button.on{background:var(--barn);color:#fff}
+main{padding:20px;max-width:1200px;margin:auto}
+.grid{display:grid;gap:14px;grid-template-columns:repeat(auto-fit,minmax(200px,1fr))}
+.card{background:#fff;border:1px solid var(--line);border-radius:10px;padding:14px}
+.stat b{font-size:28px;display:block}
+table{width:100%;border-collapse:collapse;background:#fff;border:1px solid var(--line);border-radius:10px;overflow:hidden}
+th,td{padding:8px 10px;text-align:left;border-bottom:1px solid var(--line);vertical-align:top}th{background:var(--cream2);font-size:12px;text-transform:uppercase}
+.pill{display:inline-block;padding:2px 8px;border-radius:99px;font-size:12px;background:var(--cream2)}
+.new{background:#fde2dc}.contacted{background:#fff0c2}.quoted{background:#dcebf9}.won,.confirmed,.completed{background:#d8ecd0}.lost,.cancelled{background:#e6e0d4}.tentative{background:#fff0c2}
+button.p{background:var(--barn);color:#fff;border:0;border-radius:8px;padding:8px 14px;cursor:pointer;font-weight:600}
+button.s{background:#fff;border:1px solid var(--line);border-radius:8px;padding:6px 10px;cursor:pointer}
+input,select,textarea{font:inherit;padding:7px;border:1px solid var(--line);border-radius:6px;width:100%;background:#fff}
+label{display:block;font-size:12px;font-weight:700;margin:8px 0 3px}
+.row{display:grid;gap:10px;grid-template-columns:repeat(auto-fit,minmax(180px,1fr))}
+dialog{border:0;border-radius:12px;max-width:640px;width:94%;padding:20px}dialog::backdrop{background:#0006}
+.login{max-width:340px;margin:12vh auto}.muted{color:#7a6a45;font-size:13px}.err{color:var(--barn)}
+</style></head><body>
+<div id="gate"></div>
+<div id="app" hidden>
+<header><h1>🌾 Farmtastic Fun Zone CRM</h1><span id="who" class="muted" style="color:#fff9"></span><button onclick="signOut()">Sign out</button></header>
+<nav id="nav"></nav><main id="view"></main>
+<dialog id="dlg"></dialog>
+</div>
+<script src="../shared/supabase-config.js"></script>
+<script src="../shared/pricing.js"></script>
+<script src="../shared/crm-core.js"></script>
+<script>
+const TABS=['Dashboard','Leads','Events','Organizations','Tasks'];
+let tab='Dashboard', ME=null, attractions=[];
+const $=id=>document.getElementById(id);
+const pill=s=>`<span class="pill ${esc(s)}">${esc(s)}</span>`;
+const q=async(p)=>{const {data,error}=await p;if(error){alert(error.message);return[]}return data||[]};
+
+async function boot(){
+  const r=await requireStaff();
+  if(!r||r.error==='config'){
+    $('gate').innerHTML=`<form class="login card" onsubmit="doLogin(event)"><h2>Staff sign in</h2>
+      ${r?.error==='config'?'<p class="err">Supabase isn\'t configured yet. Fill in shared/supabase-config.js.</p>':''}
+      <label>Email</label><input id="em" type="email" required><label>Password</label><input id="pw" type="password" required>
+      <p id="lerr" class="err">${esc(urlAuthError)}</p><button class="p">Sign in</button> <button type="button" class="s" onclick="doReset()">Forgot / set password</button></form>`;return;}
+  if(r.error==='not-staff'){$('gate').innerHTML=`<div class="login card"><h2>No staff access</h2><p>${esc(r.user.email)} isn't an active employee. Ask an admin to add you.</p><button class="s" onclick="signOut()">Sign out</button></div>`;return;}
+  ME=r.employee;$('gate').innerHTML='';$('app').hidden=false;$('who').textContent=ME.name+' ('+ME.role+')';
+  attractions=await q(sb.from('attractions').select('*').order('sort'));
+  $('nav').innerHTML=TABS.map(t=>`<button data-t="${t}" onclick="go('${t}')">${t}</button>`).join('');go(tab);
+}
+async function doReset(){try{await resetPassword($('em').value);$('lerr').style.color='#3f6b2f';$('lerr').textContent='Check your email for a link.'}catch(x){$('lerr').textContent=x.message}}
+async function doLogin(e){e.preventDefault();try{await signIn($('em').value,$('pw').value);location.reload()}catch(x){$('lerr').textContent=x.message}}
+function go(t){tab=t;document.querySelectorAll('nav button').forEach(b=>b.classList.toggle('on',b.dataset.t===t));({Dashboard,Leads,Events,Organizations,Tasks})[t]()}
+
+async function Dashboard(){
+  const today=new Date().toISOString().slice(0,10);
+  const [leads,events,inv,tasks]=await Promise.all([q(sb.from('leads').select('status')),q(sb.from('events').select('*').gte('end_date',today).neq('status','cancelled').order('start_date').limit(8)),q(sb.from('invoices').select('amount,status')),q(sb.from('tasks').select('id').eq('done',false))]);
+  const n=s=>leads.filter(l=>l.status===s).length, owed=inv.filter(i=>i.status==='unpaid').reduce((a,i)=>a+ +i.amount,0), paid=inv.filter(i=>i.status==='paid').reduce((a,i)=>a+ +i.amount,0);
+  $('view').innerHTML=`<div class="grid">
+   <div class="card stat"><b>${n('new')}</b>New leads</div><div class="card stat"><b>${n('quoted')}</b>Quotes out</div>
+   <div class="card stat"><b>${money(owed)}</b>Unpaid invoices</div><div class="card stat"><b>${money(paid)}</b>Collected</div>
+   <div class="card stat"><b>${tasks.length}</b>Open tasks</div></div>
+   <h3>Upcoming events</h3>${evTable(events)}`;
+}
+const evTable=ev=>ev.length?`<table><tr><th>Event</th><th>Dates</th><th>Where</th><th>Status</th></tr>${ev.map(e=>`<tr style="cursor:pointer" onclick="openEvent('${e.id}')"><td>${esc(e.name)}</td><td>${fmtDate(e.start_date)} – ${fmtDate(e.end_date)}</td><td>${esc(e.city||e.venue)}</td><td>${pill(e.status)}</td></tr>`).join('')}</table>`:'<p class="muted">Nothing yet.</p>';
+
+async function Leads(){
+  const leads=await q(sb.from('leads').select('*').order('created_at',{ascending:false}));
+  $('view').innerHTML=`<h2>Leads</h2><table><tr><th>Received</th><th>Who</th><th>Interest</th><th>Status</th><th></th></tr>${leads.map(l=>`<tr>
+   <td>${fmtDate(l.created_at)}</td><td><b>${esc(l.name)}</b><br>${esc(l.organization)}<br><a href="mailto:${esc(l.email)}">${esc(l.email)}</a> ${l.phone?`· <a href="${telHref(l.phone)}">${esc(l.phone)}</a>`:''}</td>
+   <td>${esc(l.event_dates)}<br>${esc(l.booths_interest)}<br><span class="muted">${esc(l.message)}</span></td>
+   <td><select onchange="setLead('${l.id}',this.value)">${['new','contacted','quoted','won','lost'].map(s=>`<option ${s===l.status?'selected':''}>${s}</option>`).join('')}</select></td>
+   <td><button class="s" onclick="leadToEvent('${l.id}')">→ Event</button></td></tr>`).join('')}</table>`;
+}
+async function setLead(id,status){await q(sb.from('leads').update({status}).eq('id',id))}
+async function leadToEvent(id){
+  const {data:l}=await sb.from('leads').select('*').eq('id',id).single();
+  const [org]=await q(sb.from('organizations').insert({name:l.organization||l.name}).select());
+  const [c]=await q(sb.from('contacts').insert({organization_id:org?.id,name:l.name,email:l.email,phone:l.phone}).select());
+  const [ev]=await q(sb.from('events').insert({name:(l.organization||l.name)+' event',organization_id:org?.id,contact_id:c?.id,notes:l.message}).select());
+  if(ev){await q(sb.from('leads').update({contact_id:c?.id,event_id:ev.id,status:'quoted'}).eq('id',id));openEvent(ev.id)}
+}
+
+async function Events(){
+  const ev=await q(sb.from('events').select('*').order('start_date',{ascending:false}));
+  $('view').innerHTML=`<h2>Events <button class="p" style="float:right" onclick="newEvent()">+ New event</button></h2>${evTable(ev)}`;
+}
+async function newEvent(){const [e]=await q(sb.from('events').insert({name:'New event'}).select());if(e)openEvent(e.id)}
+async function openEvent(id){
+  const {data:e}=await sb.from('events').select('*').eq('id',id).single();
+  const [quotes,inv,acts,sel]=await Promise.all([q(sb.from('quotes').select('*').eq('event_id',id).order('created_at',{ascending:false})),q(sb.from('invoices').select('*').eq('event_id',id)),q(sb.from('activities').select('*').eq('event_id',id).order('created_at',{ascending:false})),q(sb.from('event_attractions').select('attraction_id').eq('event_id',id))]);
+  const picked=new Set(sel.map(s=>s.attraction_id)), days=daysBetween(e.start_date,e.end_date)||1;
+  const d=$('dlg');d.innerHTML=`<h2>${esc(e.name)}</h2>
+   <div class="row"><div><label>Name</label><input id="e_name" value="${esc(e.name)}"></div><div><label>Status</label><select id="e_status">${['tentative','confirmed','completed','cancelled'].map(s=>`<option ${s===e.status?'selected':''}>${s}</option>`).join('')}</select></div>
+   <div><label>Start</label><input id="e_start" type="date" value="${e.start_date||''}"></div><div><label>End</label><input id="e_end" type="date" value="${e.end_date||''}"></div>
+   <div><label>Venue</label><input id="e_venue" value="${esc(e.venue)}"></div><div><label>City</label><input id="e_city" value="${esc(e.city)}"></div>
+   <div><label>Booths</label><select id="e_booths"><option value="">–</option>${[4,6,8,10].map(b=>`<option ${b==e.booths?'selected':''}>${b}</option>`).join('')}</select></div>
+   <div><label>Craft station</label><select id="e_craft"><option value="false">No</option><option value="true" ${e.craft_station?'selected':''}>Yes</option></select></div></div>
+   <label>Load-in / notes</label><textarea id="e_notes" rows="3">${esc(e.load_in_notes||e.notes)}</textarea>
+   <label>Attractions</label><div class="row">${attractions.map(a=>`<label style="font-weight:400"><input type="checkbox" style="width:auto" class="att" value="${a.id}" ${picked.has(a.id)?'checked':''}> ${esc(a.name)}</label>`).join('')}</div>
+   <p><button class="p" onclick="saveEvent('${id}')">Save</button> <button class="s" onclick="$('dlg').close()">Close</button></p>
+   <h3>Quote</h3><div id="quoteBox"></div><button class="s" onclick="makeQuote('${id}',${days})">Build quote from booths / dates</button>
+   ${quotes.map(x=>`<p class="card">${x.booths} booths × ${x.days} days — <b>${money(x.total)}</b> ${pill(x.status)} <button class="s" onclick="mkInvoice('${id}',${x.total},'deposit')">Deposit invoice</button></p>`).join('')}
+   <h3>Invoices</h3>${inv.map(i=>`<p>${esc(i.number||'')} ${esc(i.kind)} ${money(i.amount)} ${pill(i.status)} ${i.status==='unpaid'?`<button class="s" onclick="markPaid('${i.id}','${id}')">Mark paid</button>`:''}</p>`).join('')||'<p class="muted">None.</p>'}
+   <h3>Notes</h3><textarea id="newnote" rows="2" placeholder="Add a note…"></textarea><button class="s" onclick="addNote('${id}')">Add</button>
+   ${acts.map(a=>`<p class="muted">${fmtDate(a.created_at)} · ${esc(a.created_by)}: ${esc(a.body)}</p>`).join('')}`;
+  d.showModal();
+}
+async function saveEvent(id){
+  const v=k=>$('e_'+k).value||null;
+  await q(sb.from('events').update({name:v('name'),status:v('status'),start_date:v('start'),end_date:v('end'),venue:v('venue'),city:v('city'),booths:v('booths')?+v('booths'):null,craft_station:v('craft')==='true',load_in_notes:v('notes')}).eq('id',id));
+  await sb.from('event_attractions').delete().eq('event_id',id);
+  const rows=[...document.querySelectorAll('.att:checked')].map(c=>({event_id:id,attraction_id:c.value}));
+  if(rows.length)await q(sb.from('event_attractions').insert(rows));
+  $('dlg').close();go(tab);
+}
+async function makeQuote(id,days){
+  const booths=+$('e_booths').value, d=daysBetween($('e_start').value,$('e_end').value)||days;
+  if(!booths){alert('Pick a booth count first.');return}
+  const r=FarmPricing.quote({booths,days:d,craft:$('e_craft').value==='true'});
+  await q(sb.from('quotes').insert({event_id:id,booths,days:d,craft_station:$('e_craft').value==='true',per_day:r.perDay,craft_fee:r.craftFee,total:r.total}));
+  openEvent(id);
+}
+async function mkInvoice(eid,total,kind){
+  const amount=kind==='deposit'?Math.round(total*FarmPricing.DEFAULTS.depositPct)/100:total;
+  await q(sb.from('invoices').insert({event_id:eid,kind,amount,number:'FZ-'+Date.now().toString().slice(-8)}));openEvent(eid);
+}
+async function markPaid(iid,eid){await q(sb.from('invoices').update({status:'paid',paid_at:new Date().toISOString()}).eq('id',iid));openEvent(eid)}
+async function addNote(eid){const b=$('newnote').value.trim();if(!b)return;await q(sb.from('activities').insert({event_id:eid,body:b,created_by:ME.name}));openEvent(eid)}
+
+async function Organizations(){
+  const [orgs,contacts]=await Promise.all([q(sb.from('organizations').select('*').order('name')),q(sb.from('contacts').select('*'))]);
+  $('view').innerHTML=`<h2>Fairs &amp; organizations</h2><table><tr><th>Name</th><th>Type</th><th>City</th><th>Contacts</th></tr>${orgs.map(o=>`<tr><td><b>${esc(o.name)}</b></td><td>${esc(o.kind)}</td><td>${esc(o.city)}</td><td>${contacts.filter(c=>c.organization_id===o.id).map(c=>`${esc(c.name)} ${c.phone?`<a href="${telHref(c.phone)}">${esc(c.phone)}</a>`:''}`).join('<br>')}</td></tr>`).join('')}</table>`;
+}
+async function Tasks(){
+  const t=await q(sb.from('tasks').select('*').order('done').order('due_date'));
+  $('view').innerHTML=`<h2>Tasks</h2><p><input id="tt" placeholder="New task…" style="max-width:340px"> <input id="td" type="date" style="max-width:160px"> <button class="p" onclick="addTask()">Add</button></p>
+   ${t.map(x=>`<p><label style="font-weight:400"><input type="checkbox" style="width:auto" ${x.done?'checked':''} onchange="tick('${x.id}',this.checked)"> ${esc(x.title)} <span class="muted">${fmtDate(x.due_date)}</span></label></p>`).join('')}`;
+}
+async function addTask(){const title=$('tt').value.trim();if(!title)return;await q(sb.from('tasks').insert({title,due_date:$('td').value||null}));Tasks()}
+async function tick(id,done){await q(sb.from('tasks').update({done}).eq('id',id))}
+boot();
+</script></body></html>

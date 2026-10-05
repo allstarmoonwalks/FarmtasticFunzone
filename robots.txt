@@ -6,5 +6,7 @@ Disallow: /HANDOFF.md
 Disallow: /INSTRUCTIONS.md
 Disallow: /README.md
 Disallow: /netlify.toml
+Disallow: /admin/
+Disallow: /app/
 
 Sitemap: https://www.farmtasticfunzone.com/sitemap.xml

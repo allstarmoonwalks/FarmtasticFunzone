@@ -16,14 +16,19 @@ rodeos across Texas. It is replacing the owner's old **Wix** site at
 
 - **No framework, no build step.** Plain HTML + one shared `styles.css`. Open
   any `.html` file in a browser and it just works.
-- **One deliberate exception:** `booths.html` has a small vanilla-JS video
-  lightbox/modal (see section 6). This is the only JavaScript anywhere in the
-  project — keep it that way unless there's a strong reason to add more.
+- **JavaScript is limited to:** the `booths.html` video lightbox (section 6), the
+  `contact.html` lead-capture script, and the CRM/crew app (`admin/`, `app/`, `shared/`).
+  The public marketing pages stay JS-free otherwise. See `CRM.md` for the CRM.
 - **Owner / contacts:** April and Steve. Phone 936-223-1433,
   farmtasticfunzone@gmail.com, Montgomery, Texas (statewide travel).
 - **Tagline:** "Sowing Wisdom for the Harvest."
 
 ## 2. Current status
+
+**CRM + crew app (2026-10-03):** built on the AllStar Moonwalks framework and documented in
+`CRM.md` (Supabase project `ciydqepqhqfqhptpqily`, admins: April, Steve, Christian; PR #1).
+The contact form now also creates a CRM lead. Remaining: merge PR, set Supabase Auth redirect
+URLs, staff set passwords, optional Twilio lead alerts, Stripe online payments.
 
 **Done**
 - 7-page site built: Home, Attractions, Pricing, Photos, Videos, About, Contact.
