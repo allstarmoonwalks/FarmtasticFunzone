@@ -51,7 +51,7 @@ async function boot(){
     $('gate').innerHTML=`<form class="login card" onsubmit="doLogin(event)"><h2>Staff sign in</h2>
       ${r?.error==='config'?'<p class="err">Supabase isn\'t configured yet. Fill in shared/supabase-config.js.</p>':''}
       <label>Email</label><input id="em" type="email" required><label>Password</label><input id="pw" type="password" required>
-      <p id="lerr" class="err"></p><button class="p">Sign in</button> <button type="button" class="s" onclick="doReset()">Forgot / set password</button></form>`;return;}
+      <p id="lerr" class="err">${esc(urlAuthError)}</p><button class="p">Sign in</button> <button type="button" class="s" onclick="doReset()">Forgot / set password</button></form>`;return;}
   if(r.error==='not-staff'){$('gate').innerHTML=`<div class="login card"><h2>No staff access</h2><p>${esc(r.user.email)} isn't an active employee. Ask an admin to add you.</p><button class="s" onclick="signOut()">Sign out</button></div>`;return;}
   ME=r.employee;$('gate').innerHTML='';$('app').hidden=false;$('who').textContent=ME.name+' ('+ME.role+')';
   attractions=await q(sb.from('attractions').select('*').order('sort'));

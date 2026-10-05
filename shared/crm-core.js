@@ -49,3 +49,14 @@ if (sb) sb.auth.onAuthStateChange((event) => {
   };
   document.body.appendChild(box);
 });
+
+// Supabase puts auth failures in the URL hash (e.g. #error_code=otp_expired&error_description=...).
+// Surface them as a readable message instead of leaving the user on a confusing page.
+const urlAuthError = (() => {
+  const p = new URLSearchParams(location.hash.replace(/^#/, ''));
+  if (!p.get('error')) return '';
+  history.replaceState(null, '', location.pathname);
+  return p.get('error_code') === 'otp_expired'
+    ? 'That email link has expired or was already used. Enter your email and press "Forgot / set password" for a fresh one, then click the new link only once.'
+    : (p.get('error_description') || 'Sign-in link problem. Please request a new one.').replace(/\+/g, ' ');
+})();
