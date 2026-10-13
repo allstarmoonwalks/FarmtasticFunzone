@@ -28,3 +28,9 @@ Hosting stays on Netlify (no VPS / Node server needed — SMS goes through a Sup
 ## Open questions for the owner
 - ~~Craft Station add-on at 10+ days~~ — confirmed flat $400 per event.
 - Native iOS app: the PWA covers the crew use case; AllStar's Capacitor/SwiftUI wrappers can be added later.
+
+## Supabase keep-alive
+The free-tier project pauses after ~7 days without activity. `.github/workflows/supabase-keepalive.yml`
+calls `public.keepalive()` every 3 days (and can be run by hand from the Actions tab). GitHub turns off
+scheduled workflows after 60 days of no repo activity; any push to the repo re-enables them. If the
+project ever shows as paused, restore it in the Supabase dashboard (Restore project).

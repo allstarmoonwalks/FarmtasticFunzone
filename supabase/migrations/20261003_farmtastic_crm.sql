@@ -231,3 +231,9 @@ insert into price_tiers(booths,length_band,per_day) values
 insert into settings(key,value) values
  ('pricing', '{"craft_addon_short_per_day":200,"craft_addon_long_flat":400,"long_event_min_days":10,"deposit_pct":25}')
  on conflict do nothing;
+
+-- Keep-alive target (Oct 13, 2026): harmless read the scheduled GitHub job pings every 3 days
+-- so the free-tier project doesn't auto-pause. See .github/workflows/supabase-keepalive.yml
+create or replace function public.keepalive() returns timestamptz
+language sql stable security invoker set search_path = public as $$ select now() $$;
+grant execute on function public.keepalive() to anon, authenticated;
