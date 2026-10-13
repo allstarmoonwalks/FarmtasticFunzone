@@ -7,8 +7,8 @@
 })(typeof self !== 'undefined' ? self : this, function () {
   'use strict';
   const GRID = {
-    short: { 4: 1122, 6: 1272, 8: 1422, 10: 1600 },
-    long:  { 4: 800,  6: 950,  8: 1100, 10: 1288 },
+    short: { 4: 1222, 6: 1372, 8: 1522, 10: 1700 },
+    long:  { 4: 900,  6: 1050, 8: 1200, 10: 1388 },
   };
   const DEFAULTS = { longMinDays: 10, craftShortPerDay: 200, craftLongFlat: 400, depositPct: 25 };
   const round2 = n => Math.round(n * 100) / 100;

@@ -226,8 +226,8 @@ insert into attractions(slug,name,zone,category,ages,sort) values
  ('boots-scoots','Boots, Scoots, & Photo Shoots!','memory-makers','Memories / Souvenir Station','All Ages',11)
  on conflict do nothing;
 insert into price_tiers(booths,length_band,per_day) values
- (4,'short',1122),(6,'short',1272),(8,'short',1422),(10,'short',1600),
- (4,'long',800),(6,'long',950),(8,'long',1100),(10,'long',1288) on conflict do nothing;
+ (4,'short',1222),(6,'short',1372),(8,'short',1522),(10,'short',1700),
+ (4,'long',900),(6,'long',1050),(8,'long',1200),(10,'long',1388) on conflict do nothing;
 insert into settings(key,value) values
  ('pricing', '{"craft_addon_short_per_day":200,"craft_addon_long_flat":400,"long_event_min_days":10,"deposit_pct":25}')
  on conflict do nothing;
