@@ -110,7 +110,7 @@ Phone, email, and social links appear in the footer of **every** page and on
 
 ## Pricing reference (as currently on the site)
 
-- Under 10 days (per day): 4=$1,122 · 6=$1,272 · 8=$1,422 (popular) · 10=$1,600
-- 10+ days (per day / 10-day total): 4=$800/$8,000 · 6=$950/$9,500 ·
-  8=$1,100/$11,000 (best value) · 10=$1,288/$12,880
+- Under 10 days (per day): 4=$1,222 · 6=$1,372 · 8=$1,522 (popular) · 10=$1,700
+- 10+ days (per day / 10-day total): 4=$900/$9,000 · 6=$1,050/$10,500 ·
+  8=$1,200/$12,000 (best value) · 10=$1,388/$13,880
 - Craft Station add-on: $200/day (short) or $400 (10+ days)
