@@ -240,9 +240,9 @@ img { max-width: 100%; display: block; }
   .hero-content { margin-left: 20px; width: calc(100% - 40px); padding: 16px 0 0; }
   .hero-bottom { gap: 6px; padding-bottom: 10px; }
   .hero-cta { gap: 8px; }
-  .hero-cta .btn--lg { padding: 8px 20px; }
-  .hero-badges { gap: 6px 14px; }
-  .hero-badges span { padding: 4px 10px; }
+  .hero-cta .btn--lg { padding: 7px 18px; font-size: .92rem; }
+  /* phones: keep the hero clean (headline, intro, one small pricing button) */
+  .hero-content .eyebrow, .hero-badges { display: none; }
   .hero-media img { max-height: 320px; }
   .hero-sticker { display: none; }
 }
