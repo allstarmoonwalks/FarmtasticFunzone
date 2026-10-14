@@ -16,3 +16,16 @@
   [headers.values]
     X-Robots-Tag = "noindex, nofollow"
     Cache-Control = "no-cache"
+[[headers]]
+  for = "/portal/*"
+  [headers.values]
+    X-Robots-Tag = "noindex, nofollow"
+    X-Frame-Options = "DENY"
+    Cache-Control = "no-cache"
+[[headers]]
+  for = "/sign/*"
+  [headers.values]
+    X-Robots-Tag = "noindex, nofollow"
+    X-Frame-Options = "DENY"
+    Cache-Control = "no-cache"
+    Referrer-Policy = "no-referrer"

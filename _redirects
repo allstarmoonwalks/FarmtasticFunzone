@@ -8,3 +8,4 @@
 /_redirects       /404.html  404!
 /supabase/*       /404.html  404!
 /shared/pricing.test.js /404.html 404!
+/shared/contract.test.js /404.html 404!
