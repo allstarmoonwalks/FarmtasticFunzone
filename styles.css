@@ -787,3 +787,50 @@ body.modal-open { overflow: hidden; }
   .zone-block { padding: 14px 12px; }
   .zone-block .zb-ico { font-size: 1.6rem; margin-bottom: 6px; }
 }
+
+/* ---------- Phones: compact layout (less empty space) ---------- */
+@media (max-width: 620px) {
+  body { font-size: 16px; line-height: 1.5; }
+  h2 { font-size: clamp(1.4rem, 6vw, 1.7rem); }
+  h3 { font-size: 1.12rem; }
+  p { margin-bottom: .7rem; }
+  .container { padding: 0 14px; }
+  .section { padding: 26px 0; }
+  .hero + .rope-divider + .section { padding-top: 16px; }
+  .section-head { margin-bottom: 16px; }
+  .section-head p { font-size: .98rem; }
+  .eyebrow { font-size: .72rem; padding: 3px 12px; margin-bottom: 8px; }
+  .page-banner { padding: 26px 0 20px; }
+  .page-banner::after { margin-top: 20px; }
+  .grid, .feature-row, .steps, .attractions, .category-grid, .gallery, .zone-blocks { gap: 10px; }
+  .photo-strip { gap: 6px; }
+  .step { padding: 14px 16px; }
+  .step .ico { top: 14px; right: 14px; }
+  .feature { padding: 12px 14px; }
+  .feature .ico { font-size: 1.5rem; }
+  .feature h3 { margin: 4px 0 4px; }
+  .cta-band { padding: 24px 16px; border-radius: 20px; }
+  .cta-band p { font-size: .98rem; margin-bottom: 14px; }
+  .contact-info { padding: 16px; }
+  .contact-info li { padding: 8px 0; }
+  .contact-grid { gap: 16px; }
+  .zone-divider { margin-top: 20px; }
+  .attractions + .zone-divider { margin-top: 24px; }
+  .nav { padding: 8px 0; }
+  .brand-logo { height: 40px; }
+  .btn--lg { font-size: 1rem; padding: 11px 22px; }
+
+  /* footer: logo + Facebook on one row, note hidden, everything tight */
+  .site-footer { padding: 22px 0 10px; }
+  .footer-grid { gap: 10px; }
+  .footer-logo { height: 40px; margin-bottom: 0; }
+  .footer-brand { margin-bottom: 0; }
+  .footer-note { display: none; }
+  .footer-grid > div:first-child { display: flex; align-items: center; justify-content: space-between; }
+  .site-footer .socials { margin-top: 0 !important; }
+  .site-footer .socials a { transform: scale(.85); transform-origin: right center; }
+  .site-footer h4 { font-size: .95rem; margin-bottom: 2px; }
+  .site-footer .footer-links { font-size: .9rem; }
+  .footer-links li { margin-bottom: 1px; }
+  .footer-bottom { margin-top: 12px; padding-top: 10px; font-size: .8rem; }
+}
