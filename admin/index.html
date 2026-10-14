@@ -46,7 +46,7 @@ dialog{border:0;border-radius:12px;max-width:820px;width:94%;padding:20px}dialog
 <script src="../shared/contract.js"></script>
 <script src="../shared/crm-core.js"></script>
 <script>
-const TABS=['Dashboard','Leads','Customers','Events','Quotes','Contracts','Invoices','Tasks'];
+let TABS=['Dashboard','Leads','Customers','Events','Quotes','Contracts','Invoices','Tasks'];
 let filt={};
 let tab='Dashboard', ME=null, attractions=[];
 const $=id=>document.getElementById(id);
@@ -61,7 +61,7 @@ async function boot(){
       <label>Email</label><input id="em" type="email" required><label>Password</label><input id="pw" type="password" required>
       <p id="lerr" class="err">${esc(urlAuthError)}</p><button class="p">Sign in</button> <button type="button" class="s" onclick="doReset()">Forgot / set password</button></form>`;return;}
   if(r.error==='not-staff'){$('gate').innerHTML=`<div class="login card"><h2>No staff access</h2><p>${esc(r.user.email)} isn't an active employee. Ask an admin to add you.</p><button class="s" onclick="signOut()">Sign out</button></div>`;return;}
-  ME=r.employee;$('gate').innerHTML='';$('app').hidden=false;$('who').textContent=ME.name+' ('+ME.role+')';
+  ME=r.employee;if(ME.role==='admin'&&!TABS.includes('Team'))TABS.push('Team');$('gate').innerHTML='';$('app').hidden=false;$('who').textContent=ME.name+' ('+ME.role+')';
   attractions=await q(sb.from('attractions').select('*').order('sort'));
   // The database price list is the source of truth for quotes (falls back to shared/pricing.js if it can't load).
   const [tiers,pset]=await Promise.all([q(sb.from('price_tiers').select('*')),q(sb.from('settings').select('value').eq('key','pricing'))]);
@@ -71,7 +71,7 @@ async function boot(){
 }
 async function doReset(){try{await resetPassword($('em').value);$('lerr').style.color='#3f6b2f';$('lerr').textContent='Check your email for a link.'}catch(x){$('lerr').textContent=x.message}}
 async function doLogin(e){e.preventDefault();try{await signIn($('em').value,$('pw').value);location.reload()}catch(x){$('lerr').textContent=x.message}}
-function go(t){tab=t;document.querySelectorAll('nav button').forEach(b=>b.classList.toggle('on',b.dataset.t===t));({Dashboard,Leads,Customers,Events,Quotes,Contracts,Invoices,Tasks})[t]()}
+function go(t){tab=t;document.querySelectorAll('nav button').forEach(b=>b.classList.toggle('on',b.dataset.t===t));({Dashboard,Leads,Customers,Events,Quotes,Contracts,Invoices,Tasks,Team})[t]()}
 function goF(t,f){filt={...f};go(t)}
 
 async function Dashboard(){
@@ -437,6 +437,66 @@ function printContract(){
   w.document.close();setTimeout(()=>w.print(),300);
 }
 
+// ---------- Team (admins only): view / add / edit staff logins. Creating logins + passwords goes through the manage-staff edge function.
+async function staffFn(body){
+  const {data,error}=await sb.functions.invoke('manage-staff',{body});
+  if(error){let m=error.message;try{const j=await error.context.json();m=j.error||m}catch(x){}throw new Error(m)}
+  return data;
+}
+const ROLE_HELP={admin:'Everything, including this Team tab',manager:'Everything except managing the team',crew:'Crew app + view access'};
+async function Team(){
+  const emps=await q(sb.from('employees').select('*').order('status').order('name'));
+  $('view').innerHTML=`<h2>Team <button class="p" style="float:right" onclick="newMember()">+ Add team member</button></h2>
+   <p class="muted">People here can sign in to this CRM and the crew app. Inactive people can't sign in.</p>
+   <table><tr><th>Name</th><th>Email</th><th>Role</th><th>Phone</th><th>Status</th></tr>${emps.map(e=>`<tr style="cursor:pointer" onclick="openMember('${e.id}')"><td><b>${esc(e.name)}</b>${e.id===ME.id?' <span class="muted">(you)</span>':''}</td><td>${esc(e.email)}</td><td>${esc(e.role)}</td><td>${esc(e.phone)}</td><td><span class="pill ${e.status==='active'?'confirmed':'cancelled'}">${esc(e.status)}</span></td></tr>`).join('')}</table>`;
+}
+const roleOpts=cur=>['admin','manager','crew'].map(r=>`<option value="${r}" ${r===cur?'selected':''}>${r} — ${ROLE_HELP[r]}</option>`).join('');
+function newMember(){
+  $('dlg').innerHTML=`<h2>Add team member</h2><div class="row"><div><label>Name</label><input id="m_name"></div><div><label>Email (their login)</label><input id="m_email" type="email"></div>
+   <div><label>Phone</label><input id="m_phone"></div><div><label>Role</label><select id="m_role">${roleOpts('crew')}</select></div></div>
+   <label style="display:flex;gap:8px;align-items:center;font-weight:400"><input type="checkbox" id="m_invite" style="width:auto" checked> Email them a link to choose their own password</label>
+   <p class="muted">Or set a temporary password now instead (they can change it after signing in):</p><input id="m_pw" type="text" placeholder="Optional temporary password (8+ characters)" autocomplete="off">
+   <p id="m_err" class="err"></p><p><button class="p" id="m_go" onclick="saveNewMember()">Add</button> <button class="s" onclick="$('dlg').close()">Cancel</button></p>`;
+  $('dlg').showModal();
+}
+async function saveNewMember(){
+  const b=$('m_go'),pw=$('m_pw').value.trim();$('m_err').textContent='';b.disabled=true;b.textContent='Adding…';
+  try{
+    const r=await staffFn({action:'create',name:$('m_name').value,email:$('m_email').value,role:$('m_role').value,phone:$('m_phone').value,send_invite:$('m_invite').checked,password:pw||undefined});
+    let msg=r.emailed?'Added. A password link was emailed to them.':'Added.';
+    if(r.email_error)msg+='\n\nThe email did not send: '+r.email_error+'\nUse "Email password link" on their record to try again.';
+    if(pw)msg+='\n\nTemporary password: '+pw;
+    if(r.existing_login)msg+='\n\nNote: this email already had a login (e.g. a customer portal login); it keeps its current password.';
+    alert(msg);$('dlg').close();Team();
+  }catch(x){$('m_err').textContent=x.message;b.disabled=false;b.textContent='Add'}
+}
+async function openMember(id){
+  const {data:e}=await sb.from('employees').select('*').eq('id',id).single();const me=e.id===ME.id;
+  $('dlg').innerHTML=`<h2>${esc(e.name)}</h2><p class="muted">${esc(e.email)}${me?' · this is you':''}</p>
+   <div class="row"><div><label>Name</label><input id="m_name" value="${esc(e.name)}"></div><div><label>Phone</label><input id="m_phone" value="${esc(e.phone)}"></div>
+   <div><label>Role</label><select id="m_role" ${me?'disabled':''}>${roleOpts(e.role)}</select></div>
+   <div><label>Status</label><select id="m_status" ${me?'disabled':''}><option ${e.status==='active'?'selected':''}>active</option><option ${e.status==='inactive'?'selected':''}>inactive</option></select></div></div>
+   ${me?'<p class="muted">You can\'t change your own role or status (so the team can\'t be left without an admin).</p>':''}
+   <p><button class="p" onclick="saveMember('${id}')">Save</button> <button class="s" onclick="$('dlg').close()">Close</button></p>
+   <h3>Sign-in</h3><p><button class="s" onclick="memberInvite('${id}')">✉ Email password link</button> <button class="s" onclick="memberTempPw('${id}')">🔑 Set temporary password</button></p>
+   <p class="muted">The email link lets them choose their own password. A temporary password is shown once, for you to pass on.</p>`;
+  $('dlg').showModal();
+}
+async function saveMember(id){
+  const me=id===ME.id,row={name:$('m_name').value.trim(),phone:$('m_phone').value.trim()||null};
+  if(!row.name){alert('Name is required.');return}
+  if(!me){row.role=$('m_role').value;row.status=$('m_status').value}
+  const {error}=await sb.from('employees').update(row).eq('id',id);if(error)return alert(error.message);
+  $('dlg').close();Team();
+}
+async function memberInvite(id){
+  if(!confirm('Email this person a link to set their password?'))return;
+  try{const r=await staffFn({action:'invite',employee_id:id});alert('Password link emailed to '+r.to+'.')}catch(x){alert('Not sent: '+x.message)}
+}
+async function memberTempPw(id){
+  if(!confirm('Set a new temporary password? Their current password will stop working.'))return;
+  try{const r=await staffFn({action:'set_password',employee_id:id});prompt('Temporary password (shown once — copy it and pass it on):',r.password)}catch(x){alert('Not changed: '+x.message)}
+}
 async function Tasks(){
   const t=await q(sb.from('tasks').select('*').order('done').order('due_date'));
   $('view').innerHTML=`<h2>Tasks</h2><p><input id="tt" placeholder="New task…" style="max-width:340px"> <input id="td" type="date" style="max-width:160px"> <button class="p" onclick="addTask()">Add</button></p>
