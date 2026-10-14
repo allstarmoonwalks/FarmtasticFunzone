@@ -16,7 +16,8 @@ rodeos across Texas. It is replacing the owner's old **Wix** site at
 
 - **No framework, no build step.** Plain HTML + one shared `styles.css`. Open
   any `.html` file in a browser and it just works.
-- **JavaScript is limited to:** the `booths.html` video lightbox (section 6), the
+- **JavaScript is limited to:** the `booths.html` video lightbox (section 6), `nav.js`
+  (closes the mobile menu when you tap outside it; loaded on every page), the
   `contact.html` lead-capture script, and the CRM/crew app (`admin/`, `app/`, `shared/`).
   The public marketing pages stay JS-free otherwise. See `CRM.md` for the CRM.
 - **Owner / contacts:** April and Steve. Phone 936-223-1433,
