@@ -36,6 +36,12 @@ lead marked won. A signed contract can't be edited or deleted (database trigger)
   `BCC_EMAIL`, `SITE_URL`. Until the key is set the button explains that email isn't configured.
 - Add `https://www.farmtasticfunzone.com/portal/` (or `/**`) to Supabase Auth → Redirect URLs for portal sign-in links.
 
+## Team (admins only)
+Admin → **Team** tab: view everyone with a CRM/crew-app login, add people, edit name/phone/role/status, email a
+"set your password" link, or set a temporary password. Creating logins needs the service-role key, so it runs in the
+`manage-staff` edge function (admin-only; checks the caller is an active `admin` employee). Invite emails use the same
+Resend setup as contracts. Roles: `admin` (everything + Team), `manager`, `crew`. You can't change your own role/status.
+
 ## Go-live steps
 1. ~~Create a Supabase project~~ — done: **Farmtastic Fun Zone** (`ciydqepqhqfqhptpqily`, us-east-1, org LMX Rentals LLC). Separate from the AllStar Moonwalks project. Migration already applied and `shared/supabase-config.js` filled in.
 2. Add staff (SQL editor):
