@@ -344,7 +344,7 @@ async function openContractForm(eid,cid){
    <label>Requirements (one per line)</label><textarea id="c_req" rows="5">${esc((t.requirements||[]).join('\n'))}</textarea>
    <label>Price lines (one per line: description | amount — discounts negative)</label><textarea id="c_price" rows="4">${esc((t.price_lines||[]).map(l=>l.label+' | '+l.amount).join('\n'))}</textarea>
    <div class="row"><div><label>Retainer ($) — blank = 1/3 of total</label><input id="c_ret" type="number" step="any" value="${t.retainer&&t.total&&Math.abs(t.retainer-t.total/3)>0.01?t.retainer:''}"></div></div>
-   <p><button class="s" onclick="cfPreview()">Preview</button> <button class="p" onclick="saveContract(false)">Save draft</button> <button class="p" onclick="saveContract(true)">Save &amp; mark sent</button> <button class="s" onclick="${ex?`openContract('${ex.id}')`:`openEvent('${eid}')`}">Cancel</button></p>
+   <p><button class="s" onclick="cfPreview()">Preview</button> <button class="p" onclick="saveContract(false)">Save draft</button> <button class="p" onclick="saveContract(true)">Save &amp; email to customer</button> <button class="s" onclick="${ex?`openContract('${ex.id}')`:`openEvent('${eid}')`}">Cancel</button></p>
    <div id="c_prev"></div>`;
   $('dlg').showModal();
 }
@@ -364,11 +364,19 @@ async function saveContract(send){
   const t=cfTerms();if(!t.contractee_name||!t.total){alert('Contractee name and at least one price line are required.');return}
   if(!t.start_date||!t.end_date){alert('Enter the contracted start and end dates — they are recorded on the event when the contract is signed.');return}
   const row={event_id:CF.e.id,quote_id:$('c_quote').value||null,contact_id:CF.e.contact_id,organization_id:CF.e.organization_id,title:t.start_date.slice(0,4)+' Agreement',terms:t,body_html:ContractDoc.render(t)};
-  if(send){row.status='sent';row.sent_at=new Date().toISOString()}
   let id=CF.ex&&CF.ex.id;
   if(id){const {error}=await sb.from('contracts').update(row).eq('id',id);if(error){alert(error.message);return}}
   else{row.created_by=ME.name;const {data,error}=await sb.from('contracts').insert(row).select().single();if(error){alert(error.message);return}id=data.id}
+  if(send)await emailContract(id,true);
   openContract(id);if(tab==='Contracts')Contracts();
+}
+// Emails the signing link through the send-contract-email edge function (marks the contract sent on success).
+async function emailContract(id,skipConfirm){
+  if(!skipConfirm&&!confirm('Email the signing link to the customer now?'))return false;
+  const {data,error}=await sb.functions.invoke('send-contract-email',{body:{contract_id:id}});
+  if(error){let m=error.message;try{const j=await error.context.json();m=j.error||m}catch(x){}
+    alert('Email NOT sent: '+m+'\n\nThe contract is saved. You can still use "Copy signing link" or "Open in my mail app".');return false}
+  alert('Emailed the signing link to '+data.to+'.');if(!skipConfirm){openContract(id);if(tab==='Contracts')Contracts()}return true;
 }
 const signLink=c=>location.origin+'/sign/?t='+c.sign_token;
 async function openContract(id){
@@ -377,7 +385,7 @@ async function openContract(id){
   const sub=encodeURIComponent('Farmtastic FunZone agreement — please review and sign'), body=encodeURIComponent(`Hello ${contact?contact.name:''},\n\nYour Farmtastic FunZone agreement is ready. You can review and sign it online here:\n${signLink(c)}\n\nThank you!\nApril & Steve\nFarmtastic FunZone · 936-223-1433`);
   const live=c.status==='sent';
   $('dlg').innerHTML=`<h2>${esc(c.title)} ${pill(c.status)}</h2><p class="muted">${esc(c.terms.contractee_name)}${c.sent_at?` · sent ${fmtDate(c.sent_at)}`:''}${c.signed_at?` · signed ${fmtDate(c.signed_at)}`:''}</p>
-   <p>${c.status==='draft'?`<button class="p" onclick="markSent('${id}')">Mark as sent</button> `:''}${c.status==='draft'||live?`<button class="s" onclick="openContractForm('${c.event_id}','${id}')">Edit</button> `:''}${c.status!=='void'?`<button class="s" onclick="copyLink()">Copy signing link</button> ${contact&&contact.email?`<a class="s" style="text-decoration:none;color:inherit;display:inline-block" href="mailto:${esc(contact.email)}?subject=${sub}&body=${body}">✉ Email link</a> `:''}`:''}
+   <p>${c.status==='draft'||live?`<button class="p" onclick="emailContract('${id}')">✉ ${live?'Resend email':'Email to customer'}</button> `:''}${c.status==='draft'?`<button class="s" onclick="markSent('${id}')">Mark as sent (no email)</button> `:''}${c.status==='draft'||live?`<button class="s" onclick="openContractForm('${c.event_id}','${id}')">Edit</button> `:''}${c.status!=='void'?`<button class="s" onclick="copyLink()">Copy signing link</button> ${contact&&contact.email?`<a class="s" style="text-decoration:none;color:inherit;display:inline-block" href="mailto:${esc(contact.email)}?subject=${sub}&body=${body}">Open in my mail app</a> `:''}`:''}
    ${c.status==='signed'||c.status==='sent'?`<button class="s" onclick="printContract()">Print / PDF</button> `:''}<button class="s" onclick="openEvent('${c.event_id}')">Open event</button> <button class="s" onclick="$('dlg').close()">Close</button>
    ${c.status==='draft'?`<button class="s" style="float:right;color:var(--barn)" onclick="delContract('${id}')">Delete</button>`:c.status!=='void'?`<button class="s" style="float:right;color:var(--barn)" onclick="voidContract('${id}')">Void</button>`:''}</p>
    ${c.status==='sent'?'<p class="muted">Waiting for the customer to sign. They can sign from the emailed link or by logging in at /portal/.</p>':''}

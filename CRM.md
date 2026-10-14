@@ -26,8 +26,13 @@ lead marked won. A signed contract can't be edited or deleted (database trigger)
 - Migration `supabase/migrations/20261014_contracts_portal.sql`: `contracts`, `payments`, customer read-only RLS via
   `my_contact_ids()` (login email must be **verified** and match a contact's email), `get_contract` / `sign_contract`
   (token, anon-callable), `respond_to_quote` (customer, own quotes only).
-- Contracts are emailed with a link (CRM "✉ Email link" opens your mail app; "Copy signing link" for texts). There's no
-  automatic email sender yet — that needs an email provider (Resend/SendGrid) + an edge function.
+- **Automatic contract email:** `supabase/functions/send-contract-email` (deployed, staff-only; runs as the signed-in staff
+  user, so RLS applies). "✉ Email to customer" / "Save & email to customer" sends the signing link via **Resend**, marks the
+  contract sent and logs it on the event. "Copy signing link" and "Open in my mail app" remain as fallbacks.
+  One-time setup: create a Resend account, add + verify the domain `farmtasticfunzone.com` (DNS records at GoDaddy), then set
+  the function secret `RESEND_API_KEY` (Supabase → Edge Functions → Secrets). Optional secrets: `FROM_EMAIL`
+  (default `Farmtastic FunZone <contracts@farmtasticfunzone.com>`), `REPLY_TO` (default farmtasticfunzone@gmail.com),
+  `BCC_EMAIL`, `SITE_URL`. Until the key is set the button explains that email isn't configured.
 - Add `https://www.farmtasticfunzone.com/portal/` (or `/**`) to Supabase Auth → Redirect URLs for portal sign-in links.
 
 ## Go-live steps
