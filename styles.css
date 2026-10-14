@@ -347,6 +347,7 @@ img { max-width: 100%; display: block; }
   padding: 4px 10px; border-radius: 999px; background:#fbeecb; color: var(--barn-dark);
 }
 .attraction p { margin: 0; color: var(--ink-soft); font-size: .98rem; }
+.attraction .desc-short { display: none; }
 
 /* ---------- Steps ---------- */
 .steps { display: grid; grid-template-columns: repeat(4, 1fr); gap: 22px; counter-reset: step; }
@@ -776,6 +777,8 @@ body.modal-open { overflow: hidden; }
   .attraction .a-ico { width: 44px; height: 44px; font-size: 1.4rem; }
   .attraction h3 { font-size: 1.12rem; }
   .attraction p { font-size: .9rem; line-height: 1.45; }
+  .attraction .desc-full { display: none; }
+  .attraction .desc-short { display: inline; }
   .attraction .a-meta { gap: 6px; }
   .card p { font-size: .92rem; line-height: 1.45; }
   /* feature and zone tiles */
