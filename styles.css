@@ -71,6 +71,8 @@ img { max-width: 100%; display: block; }
 }
 
 .section { padding: 72px 0; }
+/* tighter gap between the hero banner and the first section */
+.hero + .rope-divider + .section { padding-top: 28px; }
 .section--alt {
   background-color: var(--cream-2);
   background-image: repeating-linear-gradient(45deg, rgba(192,57,43,.05) 0 2px, transparent 2px 16px);
