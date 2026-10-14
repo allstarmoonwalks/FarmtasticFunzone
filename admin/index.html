@@ -63,6 +63,10 @@ async function boot(){
   if(r.error==='not-staff'){$('gate').innerHTML=`<div class="login card"><h2>No staff access</h2><p>${esc(r.user.email)} isn't an active employee. Ask an admin to add you.</p><button class="s" onclick="signOut()">Sign out</button></div>`;return;}
   ME=r.employee;$('gate').innerHTML='';$('app').hidden=false;$('who').textContent=ME.name+' ('+ME.role+')';
   attractions=await q(sb.from('attractions').select('*').order('sort'));
+  // The database price list is the source of truth for quotes (falls back to shared/pricing.js if it can't load).
+  const [tiers,pset]=await Promise.all([q(sb.from('price_tiers').select('*')),q(sb.from('settings').select('value').eq('key','pricing'))]);
+  tiers.forEach(t=>{if(FarmPricing.GRID[t.length_band])FarmPricing.GRID[t.length_band][t.booths]=+t.per_day});
+  const ps=pset[0]&&pset[0].value;if(ps){const D=FarmPricing.DEFAULTS;if(ps.craft_addon_short_per_day!=null)D.craftShortPerDay=+ps.craft_addon_short_per_day;if(ps.craft_addon_long_flat!=null)D.craftLongFlat=+ps.craft_addon_long_flat;if(ps.long_event_min_days!=null)D.longMinDays=+ps.long_event_min_days;if(ps.deposit_pct!=null)D.depositPct=+ps.deposit_pct}
   $('nav').innerHTML=TABS.map(t=>`<button data-t="${t}" onclick="go('${t}')">${t}</button>`).join('');go(tab);
 }
 async function doReset(){try{await resetPassword($('em').value);$('lerr').style.color='#3f6b2f';$('lerr').textContent='Check your email for a link.'}catch(x){$('lerr').textContent=x.message}}
@@ -152,21 +156,25 @@ async function openEvent(id){
    <div class="row"><div><label>Name</label><input id="e_name" value="${esc(e.name)}"></div><div><label>Status</label><select id="e_status">${['tentative','confirmed','completed','cancelled'].map(s=>`<option ${s===e.status?'selected':''}>${s}</option>`).join('')}</select></div>
    <div><label>Customer</label><select id="e_org" onchange="fillContacts()"><option value="">–</option>${orgs.map(o=>`<option value="${o.id}" ${o.id===e.organization_id?'selected':''}>${esc(o.name)}</option>`).join('')}</select></div>
    <div><label>Contact</label><select id="e_contact"></select></div>
-   <div><label>Start</label><input id="e_start" type="date" value="${e.start_date||''}"></div><div><label>End</label><input id="e_end" type="date" value="${e.end_date||''}"></div>
+   <div><label>Start</label><input id="e_start" type="date" onchange="qbPreview()" value="${e.start_date||''}"></div><div><label>End</label><input id="e_end" type="date" onchange="qbPreview()" value="${e.end_date||''}"></div>
    <div><label>Venue</label><input id="e_venue" value="${esc(e.venue)}"></div><div><label>City</label><input id="e_city" value="${esc(e.city)}"></div>
-   <div><label>Booths</label><select id="e_booths"><option value="">–</option>${[4,6,8,10].map(b=>`<option ${b==e.booths?'selected':''}>${b}</option>`).join('')}</select></div>
-   <div><label>Craft station</label><select id="e_craft"><option value="false">No</option><option value="true" ${e.craft_station?'selected':''}>Yes</option></select></div></div>
+   <div><label>Booths</label><select id="e_booths" onchange="qbPreview()"><option value="">–</option>${[4,6,8,10].map(b=>`<option ${b==e.booths?'selected':''}>${b}</option>`).join('')}</select></div>
+   <div><label>Craft station</label><select id="e_craft" onchange="qbPreview()"><option value="false">No</option><option value="true" ${e.craft_station?'selected':''}>Yes</option></select></div></div>
    <label>Load-in / notes</label><textarea id="e_notes" rows="3">${esc(e.load_in_notes||e.notes)}</textarea>
    <label>Attractions</label><div class="row">${attractions.map(a=>`<label style="font-weight:400"><input type="checkbox" style="width:auto" class="att" value="${a.id}" ${picked.has(a.id)?'checked':''}> ${esc(a.name)}</label>`).join('')}</div>
    <p><button class="p" onclick="saveEvent('${id}')">Save</button> <button class="s" onclick="$('dlg').close()">Close</button></p>
-   <h3>Quote</h3><div id="quoteBox"></div><button class="s" onclick="makeQuote('${id}',${days})">Build quote from booths / dates</button>
+   <h3>Quote</h3><p class="muted">Priced from the price list using the booths, craft station and dates above. Add travel or a discount, then create the quote — you can still edit every number on it afterwards.</p>
+   <div class="row"><div><label>Travel ($)</label><input id="qb_travel" type="number" step="any" value="0" oninput="qbPreview()"></div>
+   <div><label>Discount</label><div style="display:flex;gap:6px"><input id="qb_disc" type="number" step="any" value="0" oninput="qbPreview()"><select id="qb_dtype" onchange="qbPreview()" style="width:72px"><option value="usd">$</option><option value="pct">%</option></select></div></div>
+   <div><label>Discount description</label><input id="qb_label" placeholder="e.g. 5% bundle with Texan Petting Zoo"></div></div>
+   <div id="quoteBox" class="card" style="margin-top:8px"></div><button class="s" onclick="makeQuote('${id}')">Create quote</button>
    ${quotes.map(x=>`<p class="card">${x.booths} booths × ${x.days} days — <b>${money(x.total)}</b> ${pill(x.status)} <button class="s" onclick="openQuote('${x.id}')">Open</button> <button class="s" onclick="mkInvoice('${id}',${x.total},'deposit')">Deposit invoice</button></p>`).join('')}
    <h3>Contracts</h3>${cons.map(c=>`<p class="card">${esc(c.title)} ${pill(c.status)} ${c.signed_at?`signed by ${esc(c.signed_name)} · ${fmtDate(c.signed_at)}`:c.sent_at?`sent ${fmtDate(c.sent_at)}`:''} <button class="s" onclick="openContract('${c.id}')">View</button></p>`).join('')||'<p class="muted">None yet.</p>'}<button class="s" onclick="openContractForm('${id}')">＋ Create contract</button>
    <h3>Invoices</h3>${inv.map(i=>`<p><a href="#" onclick="openInvoice('${i.id}');return false">${esc(i.number||'')}</a> ${esc(i.kind)} ${money(i.amount)} ${pill(i.status)} ${i.status==='unpaid'?`<button class="s" onclick="markPaid('${i.id}','${id}')">Mark paid</button>`:''}</p>`).join('')||'<p class="muted">None.</p>'}
    <h3>Notes</h3><textarea id="newnote" rows="2" placeholder="Add a note…"></textarea><button class="s" onclick="addNote('${id}')">Add</button>
    ${acts.map(a=>`<p class="muted">${fmtDate(a.created_at)} · ${esc(a.created_by)}: ${esc(a.body)}</p>`).join('')}`;
-  window._evContacts=contacts;window._evContact=e.contact_id;fillContacts();
-  d.showModal();
+  window._qbDays=days;window._evContacts=contacts;window._evContact=e.contact_id;fillContacts();
+  d.showModal();qbPreview();
 }
 function fillContacts(){const o=$('e_org').value,cur=window._evContact;$('e_contact').innerHTML='<option value="">–</option>'+window._evContacts.filter(c=>!o||c.organization_id===o).map(c=>`<option value="${c.id}" ${c.id===cur?'selected':''}>${esc(c.name)}</option>`).join('');window._evContact=''}
 async function saveEvent(id){
@@ -177,12 +185,26 @@ async function saveEvent(id){
   if(rows.length)await q(sb.from('event_attractions').insert(rows));
   $('dlg').close();go(tab);
 }
-async function makeQuote(id,days){
-  const booths=+$('e_booths').value, d=daysBetween($('e_start').value,$('e_end').value)||days;
-  if(!booths){alert('Pick a booth count first.');return}
-  const r=FarmPricing.quote({booths,days:d,craft:$('e_craft').value==='true'});
-  await q(sb.from('quotes').insert({event_id:id,booths,days:d,craft_station:$('e_craft').value==='true',per_day:r.perDay,craft_fee:r.craftFee,total:r.total}));
-  openEvent(id);
+function qbCalc(){
+  const booths=+$('e_booths').value, days=daysBetween($('e_start').value,$('e_end').value)||window._qbDays||1;
+  if(!booths)return null;
+  const craft=$('e_craft').value==='true', travel=+$('qb_travel').value||0;
+  const r=FarmPricing.quote({booths,days,craft,travelFee:travel}), sub=r.total, dv=+$('qb_disc').value||0;
+  const disc=Math.min(sub,$('qb_dtype').value==='pct'?Math.round(sub*dv)/100:dv), total=Math.round((sub-disc)*100)/100;
+  return {booths,days,craft,travel,r,sub,disc,total};
+}
+function qbPreview(){
+  const box=$('quoteBox');if(!box)return;const c=qbCalc();
+  if(!c){box.innerHTML='<span class="muted">Pick a booth count above to see the price.</span>';return}
+  const {r}=c, row=(l,a)=>`<tr><td>${l}</td><td style="text-align:right">${a}</td></tr>`;
+  box.innerHTML=`<table style="border:0">${row(`${c.booths} booths × ${c.days} day${c.days==1?'':'s'} @ ${money(r.perDay)}/day <span class="muted">(${r.band==='long'?'10+ day rate':'under 10 days'})</span>`,money(r.base))}
+   ${c.craft?row('Craft Station add-on',money(r.craftFee)):''}${c.travel?row('Travel',money(c.travel)):''}${c.disc?row(esc($('qb_label').value||'Discount'),'−'+money(c.disc)):''}
+   ${row('<b>Total</b>','<b>'+money(c.total)+'</b>')}${row('<span class="muted">Deposit ('+FarmPricing.DEFAULTS.depositPct+'%)</span>','<span class="muted">'+money(Math.round(c.total*FarmPricing.DEFAULTS.depositPct)/100)+'</span>')}</table>`;
+}
+async function makeQuote(id){
+  const c=qbCalc();if(!c){alert('Pick a booth count first.');return}
+  const [x]=await q(sb.from('quotes').insert({event_id:id,booths:c.booths,days:c.days,craft_station:c.craft,per_day:c.r.perDay,craft_fee:c.r.craftFee,travel_fee:c.travel,discount:c.disc,discount_label:$('qb_label').value.trim()||null,total:c.total}).select());
+  if(x)openQuote(x.id);
 }
 async function mkInvoice(eid,total,kind){
   const amount=kind==='deposit'?Math.round(total*FarmPricing.DEFAULTS.depositPct)/100:total;
@@ -204,7 +226,8 @@ async function openQuote(id){
    <div class="row"><div><label>Booths</label><select id="q_booths" onchange="qAuto()">${[4,6,8,10].map(b=>`<option ${b==x.booths?'selected':''}>${b}</option>`).join('')}</select></div>
    ${n('days','Days','1')}<div><label>Craft station</label><select id="q_craft" onchange="qAuto()"><option value="false">No</option><option value="true" ${x.craft_station?'selected':''}>Yes</option></select></div>
    <div><label>Status</label><select id="q_status">${['draft','sent','accepted','declined'].map(s2=>`<option ${s2===x.status?'selected':''}>${s2}</option>`).join('')}</select></div>
-   ${n('per_day','Per day ($)')}${n('craft_fee','Craft station ($)')}${n('travel_fee','Travel ($)')}${n('discount','Discount ($)')}<div><label>Discount description</label><input id="q_label" value="${esc(x.discount_label)}" placeholder="e.g. 5% bundle discount"></div></div>
+   ${n('per_day','Per day ($)')}${n('craft_fee','Craft station ($)')}${n('travel_fee','Travel ($)')}${n('discount','Discount ($)')}<div><label>Discount description</label><input id="q_label" value="${esc(x.discount_label)}" placeholder="e.g. 5% bundle discount"></div>
+   <div><label>Or apply a discount %</label><input id="q_pct" type="number" step="any" placeholder="e.g. 5" oninput="qPct()"></div></div>
    <p style="font-size:20px"><b>Total: <span id="q_total">${money(x.total)}</span></b> <span class="muted" style="font-size:13px">(per day × days + craft + travel − discount)</span></p>
    <p><button class="s" onclick="qAuto()">Reset to standard pricing</button></p>
    <p><button class="p" onclick="saveQuote('${id}')">Save</button> ${e?`<button class="s" onclick="openEvent('${e.id}')">Open event</button>`:''} ${x.status==='accepted'&&x.event_id?`<button class="s" onclick="mkInvoice('${x.event_id}',${x.total},'deposit')">Deposit invoice</button>`:''}
@@ -213,6 +236,7 @@ async function openQuote(id){
 }
 const qv=k=>+$('q_'+k).value||0;
 function qSum(){$('q_total').textContent=money(Math.round((qv('per_day')*qv('days')+qv('craft_fee')+qv('travel_fee')-qv('discount'))*100)/100)}
+function qPct(){const sub=qv('per_day')*qv('days')+qv('craft_fee')+qv('travel_fee');$('q_discount').value=Math.round(sub*(+$('q_pct').value||0))/100;qSum()}
 function qAuto(){
   try{const r=FarmPricing.quote({booths:qv('booths'),days:qv('days')||1,craft:$('q_craft').value==='true',travelFee:qv('travel_fee'),discount:qv('discount')});
     $('q_per_day').value=r.perDay;$('q_craft_fee').value=r.craftFee;qSum()}catch(x){alert(x.message)}
@@ -326,6 +350,13 @@ async function Contracts(){
   $('view').innerHTML=`<h2>Contracts</h2>${chips('Contracts',['draft','sent','signed','void'],filt.status)}${cs.length?`<table><tr><th>Created</th><th>Customer</th><th>Event</th><th>Total</th><th>Status</th></tr>${cs.map(c=>`<tr style="cursor:pointer" onclick="openContract('${c.id}')"><td>${fmtDate(c.created_at)}</td><td>${esc(c.terms.contractee_name)}</td><td>${esc(nm[c.event_id]||'')}</td><td>${money(c.terms.total)}</td><td>${pill(c.status)}${c.signed_at?`<br><span class="muted">${fmtDate(c.signed_at)}</span>`:''}</td></tr>`).join('')}</table>`:'<p class="muted">No contracts here. Create one from an event once the quote is accepted.</p>'}`;
 }
 let CF=null, CUR=null;
+// A quote-shaped price straight from the price list, for events that don't have a quote yet.
+function eventPriceQuote(e){
+  if(!e||!e.booths||!e.start_date)return null;
+  const days=daysBetween(e.start_date,e.end_date)||1;
+  try{const r=FarmPricing.quote({booths:+e.booths,days,craft:!!e.craft_station});
+    return {booths:+e.booths,days,craft_station:!!e.craft_station,per_day:r.perDay,craft_fee:r.craftFee,travel_fee:0,discount:0,total:r.total}}catch(x){return null}
+}
 async function openContractForm(eid,cid){
   const [{data:e},quotes,sel]=await Promise.all([sb.from('events').select('*').eq('id',eid).single(),q(sb.from('quotes').select('*').eq('event_id',eid).order('created_at',{ascending:false})),q(sb.from('event_attractions').select('attraction_id').eq('event_id',eid))]);
   const org=e.organization_id?(await sb.from('organizations').select('*').eq('id',e.organization_id).single()).data:null;
@@ -333,11 +364,13 @@ async function openContractForm(eid,cid){
   const ex=cid?(await sb.from('contracts').select('*').eq('id',cid).single()).data:null;
   const picked=new Set(sel.map(r=>r.attraction_id));
   CF={e,org,contact,quotes,att:attractions.filter(a=>picked.has(a.id)),ex};
-  const qt=ex?quotes.find(x=>x.id===ex.quote_id):(quotes.find(x=>x.status==='accepted')||quotes.find(x=>x.status==='sent')||quotes[0]);
+  let qt=ex?quotes.find(x=>x.id===ex.quote_id):(quotes.find(x=>x.status==='accepted')||quotes.find(x=>x.status==='sent')||quotes[0]);
+  const priced=!ex&&!qt;if(priced)qt=eventPriceQuote(e);CF.priced=priced;
   const t=ex?ex.terms:ContractDoc.defaults({org,contact,event:e,quote:qt,attractions:CF.att});
   const f=(k,l,type)=>`<div><label>${l}</label><input id="c_${k}" type="${type||'text'}" value="${esc(t[k])}"></div>`;
   $('dlg').innerHTML=`<h2>${ex?'Edit':'New'} contract — ${esc(e.name)}</h2>
    ${!org?'<p class="err">This event has no customer yet. Pick one on the event first so the contract can fill from the customer record.</p>':''}
+   ${priced&&qt?'<p class="muted">No quote on this event yet, so the prices below come straight from the price list (booths, craft station and dates). Edit any line, or create a quote first for discounts.</p>':''}${priced&&!qt?'<p class="err">No quote and no booth count on this event, so there are no prices yet. Add a quote, or enter price lines below.</p>':''}
    <div class="row"><div><label>Based on quote</label><select id="c_quote" onchange="cfQuote()"><option value="">(none)</option>${quotes.map(x=>`<option value="${x.id}" ${qt&&x.id===qt.id?'selected':''}>${fmtDate(x.created_at)} · ${x.booths} booths × ${x.days} days · ${money(x.total)} · ${x.status}</option>`).join('')}</select></div>
    ${f('contractee_name','Contractee (customer) name')}${f('contractee_address','Contractee address')}${f('contractee_phone','Phone')}${f('start_date','Start date','date')}${f('end_date','End date','date')}${f('times_text','Times of engagement')}${f('contractor_date','Contractor date')}</div>
    <label>Type of entertainment (one per line)</label><textarea id="c_ent" rows="4">${esc((t.entertainment||[]).join('\n'))}</textarea>
@@ -349,7 +382,7 @@ async function openContractForm(eid,cid){
   $('dlg').showModal();
 }
 function cfQuote(){
-  const qt=CF.quotes.find(x=>x.id===$('c_quote').value);
+  const qt=CF.quotes.find(x=>x.id===$('c_quote').value)||eventPriceQuote(CF.e);
   const t=ContractDoc.defaults({org:CF.org,contact:CF.contact,event:CF.e,quote:qt,attractions:CF.att});
   $('c_ent').value=t.entertainment.join('\n');$('c_price').value=t.price_lines.map(l=>l.label+' | '+l.amount).join('\n');$('c_ret').value='';
 }

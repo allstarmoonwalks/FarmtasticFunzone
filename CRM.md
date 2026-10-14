@@ -22,6 +22,7 @@ record, event set to **confirmed** with the contracted dates (shown on Events â†
 lead marked won. A signed contract can't be edited or deleted (database trigger) â€” void it and make a new one.
 - Contract wording lives in `shared/contract.js` (from the 2027 Loredo agreement). The rendered text is stored on the
   contract row when it is saved, so later wording changes never alter a sent/signed contract. `node shared/contract.test.js`.
+- Prices come from the database price list (`price_tiers` + `settings.pricing`; falls back to `shared/pricing.js`). On an event, the quote builder prices booths/days/craft live, with travel and a $ or % discount; every number on the quote stays editable (Quotes tab, with a discount-% helper). A contract made before any quote exists is priced from the price list too.
 - Retainer = 1/3 of the total, final = the rest (editable on the contract form).
 - Migration `supabase/migrations/20261014_contracts_portal.sql`: `contracts`, `payments`, customer read-only RLS via
   `my_contact_ids()` (login email must be **verified** and match a contact's email), `get_contract` / `sign_contract`
