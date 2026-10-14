@@ -8,5 +8,7 @@ Disallow: /README.md
 Disallow: /netlify.toml
 Disallow: /admin/
 Disallow: /app/
+Disallow: /portal/
+Disallow: /sign/
 
 Sitemap: https://www.farmtasticfunzone.com/sitemap.xml

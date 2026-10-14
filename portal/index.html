@@ -1,0 +1,145 @@
+<!DOCTYPE html>
+<html lang="en"><head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="robots" content="noindex,nofollow">
+<title>My Account — Farmtastic FunZone</title>
+<link rel="icon" href="/favicon.svg?v=2" type="image/svg+xml"><link rel="icon" href="/favicon.ico?v=2" sizes="any">
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<style>
+:root{--cream:#fbf3e0;--cream2:#f1e4c3;--ink:#2b200a;--barn:#a8321f;--green:#3f6b2f;--wood:#6b4a2b;--line:#d9c9a0}
+*{box-sizing:border-box}body{margin:0;font:16px/1.45 system-ui,sans-serif;background:var(--cream);color:var(--ink)}
+header{background:var(--wood);color:#fff;display:flex;align-items:center;gap:12px;padding:10px 16px;flex-wrap:wrap}header b{flex:1}
+header button{background:none;border:1px solid #fff8;color:#fff;border-radius:6px;padding:4px 10px;cursor:pointer}
+nav{display:flex;gap:4px;padding:8px 12px;background:var(--cream2);flex-wrap:wrap}nav button{border:0;background:none;padding:8px 12px;border-radius:8px;cursor:pointer;font:inherit;font-weight:600}nav button.on{background:var(--barn);color:#fff}
+main{padding:16px;max-width:900px;margin:auto}
+.card{background:#fff;border:1px solid var(--line);border-radius:12px;padding:14px;margin-bottom:12px}
+.pill{display:inline-block;padding:2px 8px;border-radius:99px;font-size:12px;background:var(--cream2)}
+.sent,.unpaid,.tentative,.draft{background:#fff0c2}.signed,.paid,.accepted,.confirmed,.completed{background:#d8ecd0}.declined,.void,.cancelled{background:#e6e0d4}
+button.p,a.p{background:var(--barn);color:#fff;border:0;border-radius:8px;padding:9px 14px;cursor:pointer;font:inherit;font-weight:600;text-decoration:none;display:inline-block}
+button.s{background:#fff;border:1px solid var(--line);border-radius:8px;padding:8px 12px;cursor:pointer;font:inherit}
+input[type=text],input[type=email],input[type=password]{font:inherit;padding:10px;border:1px solid var(--line);border-radius:8px;width:100%;margin:4px 0 10px}
+label{font-weight:600;font-size:14px}.muted{color:#7a6a45;font-size:14px}.err{color:var(--barn)}.ok{color:var(--green)}
+.login{max-width:380px;margin:8vh auto}table{width:100%;border-collapse:collapse}td,th{padding:6px 4px;border-bottom:1px solid var(--line);text-align:left;vertical-align:top}th{font-size:12px;text-transform:uppercase;color:#7a6a45}
+.amt{text-align:right;white-space:nowrap}.box{border:2px solid var(--barn);border-radius:10px;padding:14px;margin:14px 0;background:#fff}
+@media print{header,nav,.noprint{display:none}}
+</style></head><body>
+<div id="gate"></div>
+<div id="app" hidden>
+<header><b>🌾 Farmtastic FunZone — My Account</b><span id="who" class="muted" style="color:#fff9"></span><button onclick="signOut()">Sign out</button></header>
+<nav id="nav"></nav><main id="view"></main></div>
+<script src="../shared/supabase-config.js"></script>
+<script src="../shared/crm-core.js"></script>
+<script src="../shared/contract.js"></script>
+<script>
+const $=id=>document.getElementById(id);
+const css=document.createElement('style');css.textContent=ContractDoc.CSS;document.head.appendChild(css);
+const pill=s=>`<span class="pill ${esc(s)}">${esc(s)}</span>`;
+const TABS=['Overview','Quotes','Contracts','Invoices','Payments','Account'];
+let tab='Overview', D={events:[],quotes:[],contracts:[],invoices:[],payments:[],contacts:[]}, USER=null;
+
+async function boot(){
+  if(!sb){$('gate').innerHTML='<p class="login err">Portal is not configured yet.</p>';return}
+  const {data:{session}}=await sb.auth.getSession();
+  if(!session){loginScreen();return}
+  USER=session.user;await load();
+  $('gate').innerHTML='';$('app').hidden=false;$('who').textContent=USER.email;
+  $('nav').innerHTML=TABS.map(t=>`<button data-t="${t}" onclick="go('${t}')">${t}</button>`).join('');go(tab);
+}
+function loginScreen(){
+  $('gate').innerHTML=`<div class="login card"><h2 style="margin-top:0">Customer sign in</h2>
+   <p class="muted">View your quotes, sign your agreement, and see invoices and payments.</p>
+   <form onsubmit="sendLink(event)"><label>Email</label><input id="em" type="email" required autocomplete="email" placeholder="the email we have on file">
+   <button class="p" id="lk">Email me a sign-in link</button></form>
+   <p id="lm" class="err">${esc(urlAuthError)}</p>
+   <details><summary class="muted" style="cursor:pointer">I have a password</summary>
+   <form onsubmit="pwLogin(event)" style="margin-top:8px"><label>Password</label><input id="pw" type="password" autocomplete="current-password"><button class="s">Sign in</button> <button type="button" class="s" onclick="forgot()">Forgot password</button></form></details></div>`;
+}
+const msg=(t,ok)=>{$('lm').className=ok?'ok':'err';$('lm').textContent=t};
+async function sendLink(e){
+  e.preventDefault();const b=$('lk');b.disabled=true;
+  const {error}=await sb.auth.signInWithOtp({email:$('em').value.trim(),options:{emailRedirectTo:location.origin+location.pathname,shouldCreateUser:true}});
+  b.disabled=false;error?msg(error.message):msg('Check your email for a sign-in link. It may take a minute.',true);
+}
+async function pwLogin(e){e.preventDefault();const {error}=await sb.auth.signInWithPassword({email:$('em').value.trim(),password:$('pw').value});error?msg(error.message):location.reload()}
+async function forgot(){try{await resetPassword($('em').value.trim());msg('Check your email for a link to set your password.',true)}catch(x){msg(x.message)}}
+
+async function load(){
+  const g=async t=>{const {data}=await sb.from(t).select('*');return data||[]};
+  const [events,quotes,contracts,invoices,payments,contacts]=await Promise.all(['events','quotes','contracts','invoices','payments','contacts'].map(g));
+  D={events,quotes,contracts,invoices,payments,contacts};
+}
+function go(t){tab=t;document.querySelectorAll('nav button').forEach(b=>b.classList.toggle('on',b.dataset.t===t));({Overview,Quotes,Contracts,Invoices,Payments,Account})[t]()}
+const evName=id=>(D.events.find(e=>e.id===id)||{}).name||'';
+const none=t=>`<p class="muted">${t}</p>`;
+
+function Overview(){
+  if(!D.contacts.length&&!D.events.length){$('view').innerHTML=`<div class="card"><h3 style="margin-top:0">Welcome!</h3><p>We couldn't find a customer record for <b>${esc(USER.email)}</b> yet. If you've been in touch with us, sign in with the email address you gave us, or call 936-223-1433 and we'll link your account.</p></div>`;return}
+  const toSign=D.contracts.filter(c=>c.status==='sent'), toAccept=D.quotes.filter(q=>q.status==='sent'), owed=D.invoices.filter(i=>i.status==='unpaid');
+  const todo=[...toAccept.map(q=>`<p>📄 A quote is waiting for your response (${esc(evName(q.event_id))}) <button class="p" onclick="go('Quotes')">Review</button></p>`),
+    ...toSign.map(c=>`<p>✍️ Your agreement is ready to sign (${esc(evName(c.event_id))}) <button class="p" onclick="openContract('${c.id}')">Sign now</button></p>`),
+    ...owed.map(i=>`<p>💵 Invoice ${esc(i.number)} — ${money(i.amount)}${i.due_date?` due ${fmtDate(i.due_date)}`:''} <button class="s" onclick="go('Invoices')">View</button></p>`)];
+  $('view').innerHTML=`<h2 style="margin-top:0">Hello${D.contacts[0]?', '+esc(D.contacts[0].name.split(' ')[0]):''}!</h2>
+   ${todo.length?`<div class="card"><h3 style="margin-top:0">Needs your attention</h3>${todo.join('')}</div>`:'<div class="card">You\'re all caught up. 🎉</div>'}
+   <h3>Your events</h3>${D.events.map(e=>`<div class="card"><b>${esc(e.name)}</b> ${pill(e.status)}<br>${fmtDate(e.start_date)}${e.end_date&&e.end_date!==e.start_date?' – '+fmtDate(e.end_date):''}<br><span class="muted">${esc([e.venue,e.city].filter(Boolean).join(', '))}</span></div>`).join('')||none('No events yet.')}`;
+}
+function Quotes(){
+  $('view').innerHTML=`<h2 style="margin-top:0">Quotes</h2>${D.quotes.map(q=>`<div class="card"><b>${esc(evName(q.event_id))}</b> ${pill(q.status)}<br>
+   ${q.booths} booths × ${q.days} day${q.days==1?'':'s'}${q.craft_station?' + Craft Station':''}
+   <table style="margin-top:6px"><tr><td>${money(q.per_day)} per day × ${q.days}</td><td class="amt">${money(q.per_day*q.days)}</td></tr>
+   ${+q.craft_fee?`<tr><td>Craft Station</td><td class="amt">${money(q.craft_fee)}</td></tr>`:''}${+q.travel_fee?`<tr><td>Travel</td><td class="amt">${money(q.travel_fee)}</td></tr>`:''}
+   ${+q.discount?`<tr><td>${esc(q.discount_label||'Discount')}</td><td class="amt">-${money(q.discount)}</td></tr>`:''}<tr><th>Total</th><th class="amt" style="color:var(--ink);font-size:16px">${money(q.total)}</th></tr></table>
+   ${q.status==='sent'?`<p><button class="p" onclick="answer('${q.id}',true)">Accept quote</button> <button class="s" onclick="answer('${q.id}',false)">Decline</button></p>`:''}</div>`).join('')||none('No quotes yet.')}`;
+}
+async function answer(id,yes){
+  if(!confirm(yes?'Accept this quote? We will then send your agreement to sign.':'Decline this quote?'))return;
+  const {error}=await sb.rpc('respond_to_quote',{p_quote_id:id,p_accept:yes});if(error)return alert(error.message);
+  await load();Quotes();
+}
+function Contracts(){
+  $('view').innerHTML=`<h2 style="margin-top:0">Agreements</h2>${D.contracts.map(c=>`<div class="card"><b>${esc(c.title)}</b> · ${esc(evName(c.event_id))} ${pill(c.status)}${c.signed_at?`<br><span class="muted">Signed by ${esc(c.signed_name)} on ${fmtDate(c.signed_at)}</span>`:''}<br>
+   <button class="${c.status==='sent'?'p':'s'}" style="margin-top:6px" onclick="openContract('${c.id}')">${c.status==='sent'?'Review &amp; sign':'View signed copy'}</button></div>`).join('')||none('No agreements yet. Once you accept your quote we will send one here.')}`;
+}
+function openContract(id){
+  const c=D.contracts.find(x=>x.id===id), signed=c.status==='signed';tab='Contracts';
+  document.querySelectorAll('nav button').forEach(b=>b.classList.toggle('on',b.dataset.t==='Contracts'));
+  $('view').innerHTML=`<p class="noprint"><button class="s" onclick="go('Contracts')">← Back</button> ${signed?'<button class="s" onclick="print()">Print / save as PDF</button>':''}</p>
+   <div class="card" id="doc">${c.body_html}</div>${signed?ContractDoc.signedBlock(c):`<div class="box noprint"><h3 style="margin-top:0">Sign this agreement</h3>
+   <label>Your full name</label><input type="text" id="nm" autocomplete="name"><label>Your title (optional)</label><input type="text" id="ti">
+   <label style="display:flex;gap:8px;align-items:flex-start;font-weight:400"><input type="checkbox" id="ag" style="margin-top:4px"> <span>I have read and agree to this agreement. Typing my name is my legal signature, the same as signing on paper.</span></label>
+   <p id="er" class="err"></p><button class="p" onclick="sign('${id}')">Sign agreement</button></div>`}`;
+  const sg=$('doc').querySelector('[data-sig]');if(sg&&c.signed_name)sg.innerHTML=`<i style="font:italic 20px Georgia,serif">${esc(c.signed_name)}</i>`;
+}
+async function sign(id){
+  const c=D.contracts.find(x=>x.id===id), nm=$('nm').value.trim();$('er').textContent='';
+  if(nm.length<2)return $('er').textContent='Please type your full name.';
+  if(!$('ag').checked)return $('er').textContent='Please check the box to agree.';
+  const {error}=await sb.rpc('sign_contract',{p_token:c.sign_token,p_name:nm,p_title:$('ti').value.trim()||null,p_agent:navigator.userAgent});
+  if(error)return $('er').textContent=error.message;
+  await load();openContract(id);alert('Thank you! Your signed agreement is saved here in your account.');
+}
+function Invoices(){
+  const paid=i=>D.payments.filter(p=>p.invoice_id===i.id).reduce((a,p)=>a+ +p.amount,0);
+  $('view').innerHTML=`<h2 style="margin-top:0">Invoices</h2>${D.invoices.map(i=>`<div class="card"><b>${esc(i.number)}</b> · ${esc(i.kind)} · ${esc(evName(i.event_id))} ${pill(i.status)}<br>
+   <span style="font-size:20px"><b>${money(i.amount)}</b></span> ${i.due_date?`<span class="muted">due ${fmtDate(i.due_date)}</span>`:''}${paid(i)?`<br><span class="muted">Received ${money(paid(i))}</span>`:''}
+   ${i.status==='unpaid'?'<p class="muted" style="margin-bottom:0">To pay, send a check payable to Farmtastic FunZone or call 936-223-1433.</p>':''}</div>`).join('')||none('No invoices yet.')}`;
+}
+function Payments(){
+  const tot=D.payments.reduce((a,p)=>a+ +p.amount,0), inv=Object.fromEntries(D.invoices.map(i=>[i.id,i]));
+  $('view').innerHTML=`<h2 style="margin-top:0">Payment history</h2>${D.payments.length?`<div class="card"><table><tr><th>Date</th><th>For</th><th>Method</th><th class="amt">Amount</th></tr>${[...D.payments].sort((a,b)=>b.paid_at.localeCompare(a.paid_at)).map(p=>`<tr><td>${fmtDate(p.paid_at)}</td><td>${esc((inv[p.invoice_id]||{}).number||evName(p.event_id))}</td><td>${esc(p.method)} ${esc(p.reference)}</td><td class="amt">${money(p.amount)}</td></tr>`).join('')}
+   <tr><th colspan="3">Total received</th><th class="amt" style="color:var(--ink)">${money(tot)}</th></tr></table></div>`:none('No payments yet.')}`;
+}
+function Account(){
+  $('view').innerHTML=`<h2 style="margin-top:0">My account</h2><div class="card"><p><b>${esc(USER.email)}</b></p>
+   ${D.contacts.map(c=>`<p class="muted">${esc(c.name)} ${esc(c.phone)}</p>`).join('')}
+   <h3>${'Set or change your password'}</h3><p class="muted">Optional — you can always sign in with an emailed link instead.</p>
+   <label>New password (8+ characters)</label><input type="password" id="np" autocomplete="new-password"><label>Repeat</label><input type="password" id="np2" autocomplete="new-password">
+   <p id="pm" class="err"></p><button class="p" onclick="setPw()">Save password</button></div>`;
+}
+async function setPw(){
+  const a=$('np').value,b=$('np2').value,m=$('pm');m.className='err';
+  if(a.length<8)return m.textContent='Use at least 8 characters.';if(a!==b)return m.textContent='The passwords don\'t match.';
+  const {error}=await sb.auth.updateUser({password:a});if(error)return m.textContent=error.message;
+  m.className='ok';m.textContent='Password saved.';$('np').value=$('np2').value='';
+}
+boot();
+</script></body></html>

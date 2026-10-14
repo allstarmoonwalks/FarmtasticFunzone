@@ -26,20 +26,28 @@ button.s{background:#fff;border:1px solid var(--line);border-radius:8px;padding:
 input,select,textarea{font:inherit;padding:7px;border:1px solid var(--line);border-radius:6px;width:100%;background:#fff}
 label{display:block;font-size:12px;font-weight:700;margin:8px 0 3px}
 .row{display:grid;gap:10px;grid-template-columns:repeat(auto-fit,minmax(180px,1fr))}
-dialog{border:0;border-radius:12px;max-width:640px;width:94%;padding:20px}dialog::backdrop{background:#0006}
+dialog{border:0;border-radius:12px;max-width:820px;width:94%;padding:20px}dialog::backdrop{background:#0006}
+.cal{display:grid;grid-template-columns:repeat(7,1fr);gap:1px;background:var(--line);border:1px solid var(--line);border-radius:10px;overflow:hidden}
+.cal-h{background:var(--cream2);font-size:11px;font-weight:700;text-align:center;padding:4px 0;text-transform:uppercase}
+.cal-d{background:#fff;min-height:84px;padding:3px;overflow:hidden;min-width:0}.cal-d.off{background:#f6efdc}.cal-d.today{outline:2px solid var(--gold);outline-offset:-2px}
+.cal-d .n{font-size:12px;color:#7a6a45}.chip{font-size:11px;border-radius:4px;padding:1px 4px;margin-top:2px;cursor:pointer;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+@media(max-width:620px){.cal-d{min-height:56px}.chip{font-size:10px}}
+.tog button{border-radius:0}.tog button:first-child{border-radius:8px 0 0 8px}.tog button:last-child{border-radius:0 8px 8px 0}.tog .on{background:var(--barn);color:#fff}
 .login{max-width:340px;margin:12vh auto}.muted{color:#7a6a45;font-size:13px}.err{color:var(--barn)}
 </style></head><body>
 <div id="gate"></div>
 <div id="app" hidden>
-<header><h1>🌾 Farmtastic Fun Zone CRM</h1><span id="who" class="muted" style="color:#fff9"></span><button onclick="signOut()">Sign out</button></header>
+<header><h1>🌾 Farmtastic Fun Zone CRM</h1><span id="who" class="muted" style="color:#fff9"></span><button onclick="openChangePassword()">Change password</button><button onclick="signOut()">Sign out</button></header>
 <nav id="nav"></nav><main id="view"></main>
-<dialog id="dlg"></dialog>
+<style id="ccss"></style><dialog id="dlg"></dialog>
 </div>
 <script src="../shared/supabase-config.js"></script>
 <script src="../shared/pricing.js"></script>
+<script src="../shared/contract.js"></script>
 <script src="../shared/crm-core.js"></script>
 <script>
-const TABS=['Dashboard','Leads','Events','Organizations','Tasks'];
+const TABS=['Dashboard','Leads','Customers','Events','Quotes','Contracts','Invoices','Tasks'];
+let filt={};
 let tab='Dashboard', ME=null, attractions=[];
 const $=id=>document.getElementById(id);
 const pill=s=>`<span class="pill ${esc(s)}">${esc(s)}</span>`;
@@ -59,48 +67,91 @@ async function boot(){
 }
 async function doReset(){try{await resetPassword($('em').value);$('lerr').style.color='#3f6b2f';$('lerr').textContent='Check your email for a link.'}catch(x){$('lerr').textContent=x.message}}
 async function doLogin(e){e.preventDefault();try{await signIn($('em').value,$('pw').value);location.reload()}catch(x){$('lerr').textContent=x.message}}
-function go(t){tab=t;document.querySelectorAll('nav button').forEach(b=>b.classList.toggle('on',b.dataset.t===t));({Dashboard,Leads,Events,Organizations,Tasks})[t]()}
+function go(t){tab=t;document.querySelectorAll('nav button').forEach(b=>b.classList.toggle('on',b.dataset.t===t));({Dashboard,Leads,Customers,Events,Quotes,Contracts,Invoices,Tasks})[t]()}
+function goF(t,f){filt={...f};go(t)}
 
 async function Dashboard(){
   const today=new Date().toISOString().slice(0,10);
-  const [leads,events,inv,tasks]=await Promise.all([q(sb.from('leads').select('status')),q(sb.from('events').select('*').gte('end_date',today).neq('status','cancelled').order('start_date').limit(8)),q(sb.from('invoices').select('amount,status')),q(sb.from('tasks').select('id').eq('done',false))]);
+  const [leads,events,inv,tasks,qs,cons]=await Promise.all([q(sb.from('leads').select('status')),q(sb.from('events').select('*').gte('end_date',today).neq('status','cancelled').order('start_date').limit(8)),q(sb.from('invoices').select('amount,status')),q(sb.from('tasks').select('id').eq('done',false)),q(sb.from('quotes').select('status')),q(sb.from('contracts').select('status'))]);
   const n=s=>leads.filter(l=>l.status===s).length, owed=inv.filter(i=>i.status==='unpaid').reduce((a,i)=>a+ +i.amount,0), paid=inv.filter(i=>i.status==='paid').reduce((a,i)=>a+ +i.amount,0);
+  const T=(t,f,v,l)=>`<div class="card stat" style="cursor:pointer" onclick='goF("${t}",${JSON.stringify(f)})'><b>${v}</b>${l}</div>`;
   $('view').innerHTML=`<div class="grid">
-   <div class="card stat"><b>${n('new')}</b>New leads</div><div class="card stat"><b>${n('quoted')}</b>Quotes out</div>
-   <div class="card stat"><b>${money(owed)}</b>Unpaid invoices</div><div class="card stat"><b>${money(paid)}</b>Collected</div>
-   <div class="card stat"><b>${tasks.length}</b>Open tasks</div></div>
+   ${T('Leads',{status:'new'},n('new'),'New leads')}${T('Quotes',{status:'sent'},qs.filter(x=>x.status==='sent').length,'Quotes out')}
+   ${T('Contracts',{status:'sent'},cons.filter(c=>c.status==='sent').length,'Awaiting signature')}${T('Invoices',{status:'unpaid'},money(owed),'Unpaid invoices')}${T('Invoices',{status:'paid'},money(paid),'Collected')}
+   ${T('Tasks',{},tasks.length,'Open tasks')}</div>
    <h3>Upcoming events</h3>${evTable(events)}`;
 }
 const evTable=ev=>ev.length?`<table><tr><th>Event</th><th>Dates</th><th>Where</th><th>Status</th></tr>${ev.map(e=>`<tr style="cursor:pointer" onclick="openEvent('${e.id}')"><td>${esc(e.name)}</td><td>${fmtDate(e.start_date)} – ${fmtDate(e.end_date)}</td><td>${esc(e.city||e.venue)}</td><td>${pill(e.status)}</td></tr>`).join('')}</table>`:'<p class="muted">Nothing yet.</p>';
 
+const chips=(t,opts,cur)=>`<p>${['all',...opts].map(o=>`<button class="s" style="${(cur||'all')===o?'background:var(--barn);color:#fff':''}" onclick='goF("${t}",${JSON.stringify(o==='all'?{}:{status:o})})'>${o}</button>`).join(' ')}</p>`;
 async function Leads(){
-  const leads=await q(sb.from('leads').select('*').order('created_at',{ascending:false}));
-  $('view').innerHTML=`<h2>Leads</h2><table><tr><th>Received</th><th>Who</th><th>Interest</th><th>Status</th><th></th></tr>${leads.map(l=>`<tr>
-   <td>${fmtDate(l.created_at)}</td><td><b>${esc(l.name)}</b><br>${esc(l.organization)}<br><a href="mailto:${esc(l.email)}">${esc(l.email)}</a> ${l.phone?`· <a href="${telHref(l.phone)}">${esc(l.phone)}</a>`:''}</td>
-   <td>${esc(l.event_dates)}<br>${esc(l.booths_interest)}<br><span class="muted">${esc(l.message)}</span></td>
-   <td><select onchange="setLead('${l.id}',this.value)">${['new','contacted','quoted','won','lost'].map(s=>`<option ${s===l.status?'selected':''}>${s}</option>`).join('')}</select></td>
-   <td><button class="s" onclick="leadToEvent('${l.id}')">→ Event</button></td></tr>`).join('')}</table>`;
+  let qy=sb.from('leads').select('*').order('created_at',{ascending:false});if(filt.status)qy=qy.eq('status',filt.status);
+  const leads=await q(qy);
+  $('view').innerHTML=`<h2>Leads</h2>${chips('Leads',['new','contacted','quoted','won','lost'],filt.status)}${leads.length?`<table><tr><th>Received</th><th>Who</th><th>Interest</th><th>Status</th></tr>${leads.map(l=>`<tr style="cursor:pointer" onclick="openLead('${l.id}')">
+   <td>${fmtDate(l.created_at)}</td><td><b>${esc(l.name)}</b><br>${esc(l.organization)}<br>${esc(l.email)} ${l.phone?`· ${esc(l.phone)}`:''}</td>
+   <td>${esc(l.event_dates)}<br>${esc(l.booths_interest)}<br><span class="muted">${esc((l.message||'').slice(0,90))}</span></td>
+   <td>${pill(l.status)}</td></tr>`).join('')}</table>`:'<p class="muted">No leads here.</p>'}`;
 }
-async function setLead(id,status){await q(sb.from('leads').update({status}).eq('id',id))}
+async function openLead(id){
+  const {data:l}=await sb.from('leads').select('*').eq('id',id).single();
+  const acts=await q(sb.from('activities').select('*').eq('lead_id',id).order('created_at',{ascending:false}));
+  const f=(k,lab,type)=>`<div><label>${lab}</label><input id="l_${k}" type="${type||'text'}" value="${esc(l[k])}"></div>`;
+  $('dlg').innerHTML=`<h2>${esc(l.name)}</h2><p class="muted">Received ${fmtDate(l.created_at)}${l.phone?` · <a href="${telHref(l.phone)}">Call</a> · <a href="${smsHref(l.phone)}">Text</a>`:''}${l.email?` · <a href="mailto:${esc(l.email)}">Email</a>`:''}</p>
+   <div class="row">${f('name','Name')}${f('organization','Organization')}${f('email','Email','email')}${f('phone','Phone')}${f('event_dates','Event dates')}${f('booths_interest','Booths interested in')}
+   <div><label>Status</label><select id="l_status">${['new','contacted','quoted','won','lost'].map(x=>`<option ${x===l.status?'selected':''}>${x}</option>`).join('')}</select></div></div>
+   <label>Message</label><textarea id="l_message" rows="4">${esc(l.message)}</textarea>
+   <p><button class="p" onclick="saveLead('${id}')">Save</button> ${l.event_id?`<button class="s" onclick="openEvent('${l.event_id}')">Open event</button>`:`<button class="s" onclick="leadToEvent('${id}')">→ Make event</button>`} <button class="s" onclick="$('dlg').close()">Close</button></p>
+   <h3>Notes</h3><textarea id="newnote" rows="2" placeholder="Add a note…"></textarea><button class="s" onclick="addLeadNote('${id}')">Add</button>
+   ${acts.map(a=>`<p class="muted">${fmtDate(a.created_at)} · ${esc(a.created_by)}: ${esc(a.body)}</p>`).join('')}`;
+  $('dlg').showModal();
+}
+async function saveLead(id){
+  const v=k=>$('l_'+k).value.trim()||null;
+  await q(sb.from('leads').update({name:v('name'),organization:v('organization'),email:v('email'),phone:v('phone'),event_dates:v('event_dates'),booths_interest:v('booths_interest'),message:v('message'),status:$('l_status').value}).eq('id',id));
+  $('dlg').close();go(tab);
+}
+async function addLeadNote(id){const b=$('newnote').value.trim();if(!b)return;await q(sb.from('activities').insert({lead_id:id,body:b,created_by:ME.name}));openLead(id)}
 async function leadToEvent(id){
   const {data:l}=await sb.from('leads').select('*').eq('id',id).single();
-  const [org]=await q(sb.from('organizations').insert({name:l.organization||l.name}).select());
+  const [org]=await q(sb.from('organizations').insert({name:l.organization||l.name,phone:l.phone}).select());
   const [c]=await q(sb.from('contacts').insert({organization_id:org?.id,name:l.name,email:l.email,phone:l.phone}).select());
   const [ev]=await q(sb.from('events').insert({name:(l.organization||l.name)+' event',organization_id:org?.id,contact_id:c?.id,notes:l.message}).select());
   if(ev){await q(sb.from('leads').update({contact_id:c?.id,event_id:ev.id,status:'quoted'}).eq('id',id));openEvent(ev.id)}
 }
 
-async function Events(){
-  const ev=await q(sb.from('events').select('*').order('start_date',{ascending:false}));
-  $('view').innerHTML=`<h2>Events <button class="p" style="float:right" onclick="newEvent()">+ New event</button></h2>${evTable(ev)}`;
+let evView='list', calY=new Date().getFullYear(), calM=new Date().getMonth();
+const pad=n=>String(n).padStart(2,'0');
+function calShift(d){calM+=d;if(calM<0){calM=11;calY--}if(calM>11){calM=0;calY++}Events()}
+function calToday(){const n=new Date();calY=n.getFullYear();calM=n.getMonth();Events()}
+function setEvView(v){evView=v;Events()}
+function calGrid(ev){
+  const first=new Date(calY,calM,1), dim=new Date(calY,calM+1,0).getDate(), cells=[];
+  for(let i=0;i<first.getDay();i++)cells.push(0);for(let d=1;d<=dim;d++)cells.push(d);while(cells.length%7)cells.push(0);
+  const now=new Date(), todayKey=`${now.getFullYear()}-${pad(now.getMonth()+1)}-${pad(now.getDate())}`;
+  const live=ev.filter(e=>e.start_date&&e.status!=='cancelled');
+  const body=cells.map(d=>{
+    if(!d)return '<div class="cal-d off"></div>';
+    const key=`${calY}-${pad(calM+1)}-${pad(d)}`, here=live.filter(e=>e.start_date<=key&&(e.end_date||e.start_date)>=key);
+    return `<div class="cal-d${key===todayKey?' today':''}"><span class="n">${d}</span>${here.map(e=>`<div class="chip ${esc(e.status)}" onclick="openEvent('${e.id}')" title="${esc(e.name)} (${esc(e.status)})">${esc(e.name)}</div>`).join('')}</div>`}).join('');
+  const undated=ev.filter(e=>!e.start_date&&e.status!=='cancelled');
+  return `<p><button class="s" onclick="calShift(-1)">◀</button> <b style="display:inline-block;min-width:150px;text-align:center">${first.toLocaleString('en-US',{month:'long',year:'numeric'})}</b> <button class="s" onclick="calShift(1)">▶</button> <button class="s" onclick="calToday()">Today</button>
+   <span class="muted"> &nbsp;<span class="pill tentative">tentative</span> <span class="pill confirmed">confirmed</span> <span class="pill completed">completed</span></span></p>
+   <div class="cal">${['Sun','Mon','Tue','Wed','Thu','Fri','Sat'].map(x=>`<div class="cal-h">${x}</div>`).join('')}${body}</div>
+   ${undated.length?`<p class="muted">No dates yet: ${undated.map(e=>`<a href="#" onclick="openEvent('${e.id}');return false">${esc(e.name)}</a>`).join(', ')}</p>`:''}`;
 }
-async function newEvent(){const [e]=await q(sb.from('events').insert({name:'New event'}).select());if(e)openEvent(e.id)}
+async function Events(){
+  const ev=await q(sb.from('events').select('*').order('start_date',{ascending:evView==='cal'}));
+  $('view').innerHTML=`<h2>Events <span class="tog" style="margin-left:10px;font-size:14px"><button class="s ${evView==='list'?'on':''}" onclick="setEvView('list')">List</button><button class="s ${evView==='cal'?'on':''}" onclick="setEvView('cal')">Calendar</button></span> <button class="p" style="float:right" onclick="newEvent()">+ New event</button></h2>${evView==='cal'?calGrid(ev):evTable(ev)}`;
+}
+async function newEvent(oid,cid){const [e]=await q(sb.from('events').insert({name:'New event',organization_id:oid||null,contact_id:cid||null}).select());if(e)openEvent(e.id)}
 async function openEvent(id){
   const {data:e}=await sb.from('events').select('*').eq('id',id).single();
-  const [quotes,inv,acts,sel]=await Promise.all([q(sb.from('quotes').select('*').eq('event_id',id).order('created_at',{ascending:false})),q(sb.from('invoices').select('*').eq('event_id',id)),q(sb.from('activities').select('*').eq('event_id',id).order('created_at',{ascending:false})),q(sb.from('event_attractions').select('attraction_id').eq('event_id',id))]);
+  const [orgs,contacts,cons,quotes,inv,acts,sel]=await Promise.all([q(sb.from('organizations').select('id,name').order('name')),q(sb.from('contacts').select('id,name,organization_id').order('name')),q(sb.from('contracts').select('id,status,title,sent_at,signed_at,signed_name').eq('event_id',id).order('created_at',{ascending:false})),q(sb.from('quotes').select('*').eq('event_id',id).order('created_at',{ascending:false})),q(sb.from('invoices').select('*').eq('event_id',id)),q(sb.from('activities').select('*').eq('event_id',id).order('created_at',{ascending:false})),q(sb.from('event_attractions').select('attraction_id').eq('event_id',id))]);
   const picked=new Set(sel.map(s=>s.attraction_id)), days=daysBetween(e.start_date,e.end_date)||1;
   const d=$('dlg');d.innerHTML=`<h2>${esc(e.name)}</h2>
    <div class="row"><div><label>Name</label><input id="e_name" value="${esc(e.name)}"></div><div><label>Status</label><select id="e_status">${['tentative','confirmed','completed','cancelled'].map(s=>`<option ${s===e.status?'selected':''}>${s}</option>`).join('')}</select></div>
+   <div><label>Customer</label><select id="e_org" onchange="fillContacts()"><option value="">–</option>${orgs.map(o=>`<option value="${o.id}" ${o.id===e.organization_id?'selected':''}>${esc(o.name)}</option>`).join('')}</select></div>
+   <div><label>Contact</label><select id="e_contact"></select></div>
    <div><label>Start</label><input id="e_start" type="date" value="${e.start_date||''}"></div><div><label>End</label><input id="e_end" type="date" value="${e.end_date||''}"></div>
    <div><label>Venue</label><input id="e_venue" value="${esc(e.venue)}"></div><div><label>City</label><input id="e_city" value="${esc(e.city)}"></div>
    <div><label>Booths</label><select id="e_booths"><option value="">–</option>${[4,6,8,10].map(b=>`<option ${b==e.booths?'selected':''}>${b}</option>`).join('')}</select></div>
@@ -109,15 +160,18 @@ async function openEvent(id){
    <label>Attractions</label><div class="row">${attractions.map(a=>`<label style="font-weight:400"><input type="checkbox" style="width:auto" class="att" value="${a.id}" ${picked.has(a.id)?'checked':''}> ${esc(a.name)}</label>`).join('')}</div>
    <p><button class="p" onclick="saveEvent('${id}')">Save</button> <button class="s" onclick="$('dlg').close()">Close</button></p>
    <h3>Quote</h3><div id="quoteBox"></div><button class="s" onclick="makeQuote('${id}',${days})">Build quote from booths / dates</button>
-   ${quotes.map(x=>`<p class="card">${x.booths} booths × ${x.days} days — <b>${money(x.total)}</b> ${pill(x.status)} <button class="s" onclick="mkInvoice('${id}',${x.total},'deposit')">Deposit invoice</button></p>`).join('')}
-   <h3>Invoices</h3>${inv.map(i=>`<p>${esc(i.number||'')} ${esc(i.kind)} ${money(i.amount)} ${pill(i.status)} ${i.status==='unpaid'?`<button class="s" onclick="markPaid('${i.id}','${id}')">Mark paid</button>`:''}</p>`).join('')||'<p class="muted">None.</p>'}
+   ${quotes.map(x=>`<p class="card">${x.booths} booths × ${x.days} days — <b>${money(x.total)}</b> ${pill(x.status)} <button class="s" onclick="openQuote('${x.id}')">Open</button> <button class="s" onclick="mkInvoice('${id}',${x.total},'deposit')">Deposit invoice</button></p>`).join('')}
+   <h3>Contracts</h3>${cons.map(c=>`<p class="card">${esc(c.title)} ${pill(c.status)} ${c.signed_at?`signed by ${esc(c.signed_name)} · ${fmtDate(c.signed_at)}`:c.sent_at?`sent ${fmtDate(c.sent_at)}`:''} <button class="s" onclick="openContract('${c.id}')">View</button></p>`).join('')||'<p class="muted">None yet.</p>'}<button class="s" onclick="openContractForm('${id}')">＋ Create contract</button>
+   <h3>Invoices</h3>${inv.map(i=>`<p><a href="#" onclick="openInvoice('${i.id}');return false">${esc(i.number||'')}</a> ${esc(i.kind)} ${money(i.amount)} ${pill(i.status)} ${i.status==='unpaid'?`<button class="s" onclick="markPaid('${i.id}','${id}')">Mark paid</button>`:''}</p>`).join('')||'<p class="muted">None.</p>'}
    <h3>Notes</h3><textarea id="newnote" rows="2" placeholder="Add a note…"></textarea><button class="s" onclick="addNote('${id}')">Add</button>
    ${acts.map(a=>`<p class="muted">${fmtDate(a.created_at)} · ${esc(a.created_by)}: ${esc(a.body)}</p>`).join('')}`;
+  window._evContacts=contacts;window._evContact=e.contact_id;fillContacts();
   d.showModal();
 }
+function fillContacts(){const o=$('e_org').value,cur=window._evContact;$('e_contact').innerHTML='<option value="">–</option>'+window._evContacts.filter(c=>!o||c.organization_id===o).map(c=>`<option value="${c.id}" ${c.id===cur?'selected':''}>${esc(c.name)}</option>`).join('');window._evContact=''}
 async function saveEvent(id){
   const v=k=>$('e_'+k).value||null;
-  await q(sb.from('events').update({name:v('name'),status:v('status'),start_date:v('start'),end_date:v('end'),venue:v('venue'),city:v('city'),booths:v('booths')?+v('booths'):null,craft_station:v('craft')==='true',load_in_notes:v('notes')}).eq('id',id));
+  await q(sb.from('events').update({name:v('name'),status:v('status'),start_date:v('start'),end_date:v('end'),venue:v('venue'),city:v('city'),organization_id:v('org'),contact_id:v('contact'),booths:v('booths')?+v('booths'):null,craft_station:v('craft')==='true',load_in_notes:v('notes')}).eq('id',id));
   await sb.from('event_attractions').delete().eq('event_id',id);
   const rows=[...document.querySelectorAll('.att:checked')].map(c=>({event_id:id,attraction_id:c.value}));
   if(rows.length)await q(sb.from('event_attractions').insert(rows));
@@ -134,13 +188,214 @@ async function mkInvoice(eid,total,kind){
   const amount=kind==='deposit'?Math.round(total*FarmPricing.DEFAULTS.depositPct)/100:total;
   await q(sb.from('invoices').insert({event_id:eid,kind,amount,number:'FZ-'+Date.now().toString().slice(-8)}));openEvent(eid);
 }
-async function markPaid(iid,eid){await q(sb.from('invoices').update({status:'paid',paid_at:new Date().toISOString()}).eq('id',iid));openEvent(eid)}
+async function markPaid(iid,eid){const {data:i}=await sb.from('invoices').select('amount').eq('id',iid).single();await q(sb.from('payments').insert({invoice_id:iid,event_id:eid,amount:i.amount,method:'other'}));await q(sb.from('invoices').update({status:'paid',paid_at:new Date().toISOString()}).eq('id',iid));openEvent(eid)}
 async function addNote(eid){const b=$('newnote').value.trim();if(!b)return;await q(sb.from('activities').insert({event_id:eid,body:b,created_by:ME.name}));openEvent(eid)}
 
-async function Organizations(){
-  const [orgs,contacts]=await Promise.all([q(sb.from('organizations').select('*').order('name')),q(sb.from('contacts').select('*'))]);
-  $('view').innerHTML=`<h2>Fairs &amp; organizations</h2><table><tr><th>Name</th><th>Type</th><th>City</th><th>Contacts</th></tr>${orgs.map(o=>`<tr><td><b>${esc(o.name)}</b></td><td>${esc(o.kind)}</td><td>${esc(o.city)}</td><td>${contacts.filter(c=>c.organization_id===o.id).map(c=>`${esc(c.name)} ${c.phone?`<a href="${telHref(c.phone)}">${esc(c.phone)}</a>`:''}`).join('<br>')}</td></tr>`).join('')}</table>`;
+async function Quotes(){
+  let qy=sb.from('quotes').select('*').order('created_at',{ascending:false});if(filt.status)qy=qy.eq('status',filt.status);
+  const [qs,ev]=await Promise.all([q(qy),q(sb.from('events').select('id,name'))]);const nm=Object.fromEntries(ev.map(e=>[e.id,e.name]));
+  $('view').innerHTML=`<h2>Quotes</h2>${chips('Quotes',['draft','sent','accepted','declined'],filt.status)}${qs.length?`<table><tr><th>Created</th><th>Event</th><th>Package</th><th>Total</th><th>Status</th></tr>${qs.map(x=>`<tr style="cursor:pointer" onclick="openQuote('${x.id}')"><td>${fmtDate(x.created_at)}</td><td>${esc(nm[x.event_id]||'')}</td><td>${x.booths} booths × ${x.days} days${x.craft_station?' + craft':''}</td><td><b>${money(x.total)}</b></td><td>${pill(x.status)}</td></tr>`).join('')}</table>`:'<p class="muted">No quotes here. Build one from an event.</p>'}`;
 }
+async function openQuote(id){
+  const {data:x}=await sb.from('quotes').select('*').eq('id',id).single();
+  const {data:e}=x.event_id?await sb.from('events').select('id,name').eq('id',x.event_id).single():{data:null};
+  const n=(k,lab,step)=>`<div><label>${lab}</label><input id="q_${k}" type="number" step="${step||'any'}" value="${x[k]}" oninput="qSum()"></div>`;
+  $('dlg').innerHTML=`<h2>Quote${e?` — ${esc(e.name)}`:''}</h2><p class="muted">Created ${fmtDate(x.created_at)}</p>
+   <div class="row"><div><label>Booths</label><select id="q_booths" onchange="qAuto()">${[4,6,8,10].map(b=>`<option ${b==x.booths?'selected':''}>${b}</option>`).join('')}</select></div>
+   ${n('days','Days','1')}<div><label>Craft station</label><select id="q_craft" onchange="qAuto()"><option value="false">No</option><option value="true" ${x.craft_station?'selected':''}>Yes</option></select></div>
+   <div><label>Status</label><select id="q_status">${['draft','sent','accepted','declined'].map(s2=>`<option ${s2===x.status?'selected':''}>${s2}</option>`).join('')}</select></div>
+   ${n('per_day','Per day ($)')}${n('craft_fee','Craft station ($)')}${n('travel_fee','Travel ($)')}${n('discount','Discount ($)')}<div><label>Discount description</label><input id="q_label" value="${esc(x.discount_label)}" placeholder="e.g. 5% bundle discount"></div></div>
+   <p style="font-size:20px"><b>Total: <span id="q_total">${money(x.total)}</span></b> <span class="muted" style="font-size:13px">(per day × days + craft + travel − discount)</span></p>
+   <p><button class="s" onclick="qAuto()">Reset to standard pricing</button></p>
+   <p><button class="p" onclick="saveQuote('${id}')">Save</button> ${e?`<button class="s" onclick="openEvent('${e.id}')">Open event</button>`:''} ${x.status==='accepted'&&x.event_id?`<button class="s" onclick="mkInvoice('${x.event_id}',${x.total},'deposit')">Deposit invoice</button>`:''}
+   <button class="s" onclick="$('dlg').close()">Close</button> <button class="s" style="float:right;color:var(--barn)" onclick="delQuote('${id}')">Delete</button></p>`;
+  $('dlg').showModal();
+}
+const qv=k=>+$('q_'+k).value||0;
+function qSum(){$('q_total').textContent=money(Math.round((qv('per_day')*qv('days')+qv('craft_fee')+qv('travel_fee')-qv('discount'))*100)/100)}
+function qAuto(){
+  try{const r=FarmPricing.quote({booths:qv('booths'),days:qv('days')||1,craft:$('q_craft').value==='true',travelFee:qv('travel_fee'),discount:qv('discount')});
+    $('q_per_day').value=r.perDay;$('q_craft_fee').value=r.craftFee;qSum()}catch(x){alert(x.message)}
+}
+async function saveQuote(id){
+  const total=Math.round((qv('per_day')*qv('days')+qv('craft_fee')+qv('travel_fee')-qv('discount'))*100)/100;
+  await q(sb.from('quotes').update({booths:qv('booths'),days:Math.max(1,qv('days')),craft_station:$('q_craft').value==='true',per_day:qv('per_day'),craft_fee:qv('craft_fee'),travel_fee:qv('travel_fee'),discount:qv('discount'),total,status:$('q_status').value,discount_label:$('q_label').value.trim()||null}).eq('id',id));
+  const {data:x}=await sb.from('quotes').select('event_id,status').eq('id',id).single();
+  $('dlg').close();go(tab);
+  if(x&&x.status==='accepted'&&x.event_id){const {data:c}=await sb.from('contracts').select('id').eq('event_id',x.event_id).neq('status','void').limit(1);
+    if(!c||!c.length){if(confirm('Quote accepted. Create the contract now?'))openContractForm(x.event_id)}}
+}
+async function delQuote(id){if(!confirm('Delete this quote?'))return;await q(sb.from('quotes').delete().eq('id',id));$('dlg').close();go(tab)}
+
+async function Invoices(){
+  let qy=sb.from('invoices').select('*').order('created_at',{ascending:false});if(filt.status)qy=qy.eq('status',filt.status);
+  const [inv,ev]=await Promise.all([q(qy),q(sb.from('events').select('id,name'))]);const nm=Object.fromEntries(ev.map(e=>[e.id,e.name]));
+  $('view').innerHTML=`<h2>Invoices</h2>${chips('Invoices',['unpaid','paid','void'],filt.status)}${inv.length?`<table><tr><th>Number</th><th>Event</th><th>Kind</th><th>Amount</th><th>Due</th><th>Status</th></tr>${inv.map(i=>`<tr style="cursor:pointer" onclick="openInvoice('${i.id}')"><td>${esc(i.number)}</td><td>${esc(nm[i.event_id]||'')}</td><td>${esc(i.kind)}</td><td><b>${money(i.amount)}</b></td><td>${fmtDate(i.due_date)}</td><td>${pill(i.status)}</td></tr>`).join('')}</table>`:'<p class="muted">No invoices here.</p>'}`;
+}
+async function openInvoice(id){
+  const [{data:i},pays]=await Promise.all([sb.from('invoices').select('*').eq('id',id).single(),q(sb.from('payments').select('*').eq('invoice_id',id).order('paid_at'))]);
+  const paid=pays.reduce((a,p2)=>a+ +p2.amount,0);
+  $('dlg').innerHTML=`<h2>Invoice ${esc(i.number)}</h2><p class="muted">Created ${fmtDate(i.created_at)}${i.paid_at?` · Paid ${fmtDate(i.paid_at)}`:''}</p>
+   <div class="row"><div><label>Kind</label><select id="i_kind">${['deposit','balance','full'].map(k=>`<option ${k===i.kind?'selected':''}>${k}</option>`).join('')}</select></div>
+   <div><label>Amount ($)</label><input id="i_amount" type="number" step="any" value="${i.amount}"></div>
+   <div><label>Due date</label><input id="i_due" type="date" value="${i.due_date||''}"></div>
+   <div><label>Status</label><select id="i_status">${['unpaid','paid','void'].map(k=>`<option ${k===i.status?'selected':''}>${k}</option>`).join('')}</select></div></div>
+   <p><button class="p" onclick="saveInvoice('${id}')">Save</button> ${i.event_id?`<button class="s" onclick="openEvent('${i.event_id}')">Open event</button>`:''} <button class="s" onclick="$('dlg').close()">Close</button></p>
+   <h3>Payments <span class="muted" style="font-size:13px">(${money(paid)} of ${money(i.amount)} received)</span></h3>
+   ${pays.map(p2=>`<p>${fmtDate(p2.paid_at)} · <b>${money(p2.amount)}</b> · ${esc(p2.method)} ${esc(p2.reference)} <button class="s" onclick="delPayment('${p2.id}','${id}')">✕</button></p>`).join('')||'<p class="muted">No payments recorded.</p>'}
+   <div class="row"><div><label>Amount</label><input id="p_amt" type="number" step="any" value="${Math.max(0,Math.round((i.amount-paid)*100)/100)}"></div>
+   <div><label>Method</label><select id="p_method">${['check','card','cash','ach','other'].map(k=>`<option>${k}</option>`).join('')}</select></div>
+   <div><label>Date</label><input id="p_date" type="date" value="${new Date().toISOString().slice(0,10)}"></div><div><label>Reference / check #</label><input id="p_ref"></div></div>
+   <p><button class="s" onclick="recordPayment('${id}')">＋ Record payment</button></p>`;
+  $('dlg').showModal();
+}
+async function recordPayment(id){
+  const amt=+$('p_amt').value;if(!(amt>0))return alert('Enter the amount received.');
+  const {data:i}=await sb.from('invoices').select('amount,event_id').eq('id',id).single();
+  await q(sb.from('payments').insert({invoice_id:id,event_id:i.event_id,amount:amt,method:$('p_method').value,paid_at:$('p_date').value,reference:$('p_ref').value.trim()||null}));
+  const pays=await q(sb.from('payments').select('amount').eq('invoice_id',id)), paid=pays.reduce((a,p2)=>a+ +p2.amount,0);
+  if(paid>=+i.amount-0.005)await q(sb.from('invoices').update({status:'paid',paid_at:new Date().toISOString()}).eq('id',id));
+  openInvoice(id);if(tab==='Invoices')Invoices();
+}
+async function delPayment(pid,iid){if(!confirm('Remove this payment record?'))return;await q(sb.from('payments').delete().eq('id',pid));
+  const {data:i}=await sb.from('invoices').select('amount,status').eq('id',iid).single();
+  const pays=await q(sb.from('payments').select('amount').eq('invoice_id',iid)), paid=pays.reduce((a,p2)=>a+ +p2.amount,0);
+  if(i.status==='paid'&&paid<+i.amount-0.005)await q(sb.from('invoices').update({status:'unpaid',paid_at:null}).eq('id',iid));
+  openInvoice(iid);if(tab==='Invoices')Invoices();
+}
+async function saveInvoice(id){
+  const {data:old}=await sb.from('invoices').select('status,paid_at,event_id').eq('id',id).single();
+  const st=$('i_status').value, upd={kind:$('i_kind').value,amount:+$('i_amount').value||0,due_date:$('i_due').value||null,status:st};
+  if(st==='paid'&&!old.paid_at)upd.paid_at=new Date().toISOString();if(st!=='paid')upd.paid_at=null;
+  await q(sb.from('invoices').update(upd).eq('id',id));
+  if(st==='paid'&&old.status!=='paid'){const pays=await q(sb.from('payments').select('id').eq('invoice_id',id));
+    if(!pays.length)await q(sb.from('payments').insert({invoice_id:id,event_id:old.event_id,amount:upd.amount,method:'other'}))}
+  $('dlg').close();go(tab);
+}
+
+async function Customers(){
+  const [orgs,contacts]=await Promise.all([q(sb.from('organizations').select('*').order('name')),q(sb.from('contacts').select('*'))]);
+  $('view').innerHTML=`<h2>Customers <button class="p" style="float:right" onclick="newCustomer()">+ New customer</button></h2>${orgs.length?`<table><tr><th>Name</th><th>Type</th><th>City</th><th>Contacts</th></tr>${orgs.map(o=>`<tr style="cursor:pointer" onclick="openCustomer('${o.id}')"><td><b>${esc(o.name)}</b></td><td>${esc(o.kind)}</td><td>${esc(o.city)}</td><td>${contacts.filter(c=>c.organization_id===o.id).map(c=>`${esc(c.name)} <span class="muted">${esc(c.email)} ${esc(c.phone)}</span>`).join('<br>')}</td></tr>`).join('')}</table>`:'<p class="muted">No customers yet.</p>'}`;
+}
+const orgForm=(o)=>{const f=(k,l,t)=>`<div><label>${l}</label><input id="o_${k}" type="${t||'text'}" value="${esc(o[k])}"></div>`;
+  return `<div class="row">${f('name','Organization / customer name')}<div><label>Type</label><select id="o_kind">${['fair','rodeo','festival','school','corporate','other'].map(k=>`<option ${k===(o.kind||'fair')?'selected':''}>${k}</option>`).join('')}</select></div>
+  ${f('address','Street address')}${f('city','City')}${f('state','State')}${f('zip','ZIP')}${f('phone','Phone')}</div>`};
+const orgVals=()=>{const v=k=>$('o_'+k).value.trim()||null;return {name:v('name'),kind:$('o_kind').value,address:v('address'),city:v('city'),state:v('state'),zip:v('zip'),phone:v('phone')}};
+function newCustomer(){
+  $('dlg').innerHTML=`<h2>New customer</h2>${orgForm({state:'TX'})}<h3>Main contact</h3><div class="row"><div><label>Name</label><input id="nc_name"></div><div><label>Email</label><input id="nc_email" type="email"></div><div><label>Phone</label><input id="nc_phone"></div></div>
+   <p class="muted">The contact's email is what lets them sign in to the customer portal.</p><p><button class="p" onclick="saveNewCustomer()">Create</button> <button class="s" onclick="$('dlg').close()">Cancel</button></p>`;
+  $('dlg').showModal();
+}
+async function saveNewCustomer(){
+  const o=orgVals();if(!o.name){alert('Customer name is required.');return}
+  const [org]=await q(sb.from('organizations').insert(o).select());if(!org)return;
+  const cn=$('nc_name').value.trim();
+  if(cn)await q(sb.from('contacts').insert({organization_id:org.id,name:cn,email:$('nc_email').value.trim()||null,phone:$('nc_phone').value.trim()||null}));
+  openCustomer(org.id);if(tab==='Customers')Customers();
+}
+async function openCustomer(id){
+  const [{data:o},contacts,events]=await Promise.all([sb.from('organizations').select('*').eq('id',id).single(),q(sb.from('contacts').select('*').eq('organization_id',id).order('created_at')),q(sb.from('events').select('*').eq('organization_id',id).order('start_date',{ascending:false}))]);
+  const ids=events.map(e=>e.id), inn=ids.length?ids:['00000000-0000-0000-0000-000000000000'];
+  const [quotes,cons,inv,pays]=await Promise.all([q(sb.from('quotes').select('*').in('event_id',inn).order('created_at',{ascending:false})),q(sb.from('contracts').select('id,event_id,status,title,sent_at,signed_at,signed_name').in('event_id',inn).order('created_at',{ascending:false})),q(sb.from('invoices').select('*').in('event_id',inn).order('created_at',{ascending:false})),q(sb.from('payments').select('*').in('event_id',inn).order('paid_at',{ascending:false}))]);
+  const nm=Object.fromEntries(events.map(e=>[e.id,e.name]));
+  const owed=inv.filter(i=>i.status==='unpaid').reduce((a,i)=>a+ +i.amount,0), paid=pays.reduce((a,p)=>a+ +p.amount,0);
+  $('dlg').innerHTML=`<h2>${esc(o.name)}</h2>${orgForm(o)}
+   <p><button class="p" onclick="saveCustomer('${id}')">Save</button> <button class="s" onclick="newEvent('${id}','${contacts[0]?.id||''}')">＋ New event</button> <button class="s" onclick="$('dlg').close()">Close</button></p>
+   <h3>Contacts</h3>${contacts.map(c=>`<div class="row" style="margin-bottom:6px"><input id="ct_n_${c.id}" value="${esc(c.name)}" placeholder="Name"><input id="ct_e_${c.id}" value="${esc(c.email)}" placeholder="Email (portal login)"><input id="ct_p_${c.id}" value="${esc(c.phone)}" placeholder="Phone"><div><button class="s" onclick="saveContact('${c.id}','${id}')">Save</button></div></div>`).join('')}
+   <div class="row"><input id="ct_n_new" placeholder="New contact name"><input id="ct_e_new" placeholder="Email"><input id="ct_p_new" placeholder="Phone"><div><button class="s" onclick="saveContact('new','${id}')">＋ Add contact</button></div></div>
+   <h3>Events</h3>${events.map(e=>`<p><a href="#" onclick="openEvent('${e.id}');return false">${esc(e.name)}</a> ${fmtDate(e.start_date)} – ${fmtDate(e.end_date)} ${pill(e.status)}</p>`).join('')||'<p class="muted">None.</p>'}
+   <h3>Contracts</h3>${cons.map(c=>`<p>${esc(c.title)} · ${esc(nm[c.event_id]||'')} ${pill(c.status)} ${c.signed_at?`signed by ${esc(c.signed_name)} ${fmtDate(c.signed_at)}`:''} <button class="s" onclick="openContract('${c.id}')">${c.status==='signed'?'View signed copy':'View'}</button></p>`).join('')||'<p class="muted">None.</p>'}
+   <h3>Quotes</h3>${quotes.map(x=>`<p>${esc(nm[x.event_id]||'')} ${x.booths} booths × ${x.days} days <b>${money(x.total)}</b> ${pill(x.status)} <button class="s" onclick="openQuote('${x.id}')">Open</button></p>`).join('')||'<p class="muted">None.</p>'}
+   <h3>Invoices &amp; payments</h3><p class="muted">Paid ${money(paid)} · Unpaid ${money(owed)}</p>
+   ${inv.map(i=>`<p>${esc(i.number)} ${esc(i.kind)} <b>${money(i.amount)}</b> ${pill(i.status)} <button class="s" onclick="openInvoice('${i.id}')">Open</button></p>`).join('')}
+   ${pays.map(p2=>`<p class="muted">${fmtDate(p2.paid_at)} · ${money(p2.amount)} · ${esc(p2.method)} ${esc(p2.reference)}</p>`).join('')}`;
+  $('dlg').showModal();
+}
+async function saveCustomer(id){const o=orgVals();if(!o.name){alert('Name is required.');return}await q(sb.from('organizations').update(o).eq('id',id));$('dlg').close();go(tab)}
+async function saveContact(cid,oid){
+  const k=cid==='new'?'new':cid, row={name:$('ct_n_'+k).value.trim(),email:$('ct_e_'+k).value.trim()||null,phone:$('ct_p_'+k).value.trim()||null};
+  if(!row.name){if(cid==='new')return;alert('Contact name is required.');return}
+  if(cid==='new')await q(sb.from('contacts').insert({...row,organization_id:oid}));else await q(sb.from('contacts').update(row).eq('id',cid));
+  openCustomer(oid);
+}
+
+// ---------- Contracts
+async function Contracts(){
+  let qy=sb.from('contracts').select('*').order('created_at',{ascending:false});if(filt.status)qy=qy.eq('status',filt.status);
+  const [cs,ev]=await Promise.all([q(qy),q(sb.from('events').select('id,name'))]);const nm=Object.fromEntries(ev.map(e=>[e.id,e.name]));
+  $('view').innerHTML=`<h2>Contracts</h2>${chips('Contracts',['draft','sent','signed','void'],filt.status)}${cs.length?`<table><tr><th>Created</th><th>Customer</th><th>Event</th><th>Total</th><th>Status</th></tr>${cs.map(c=>`<tr style="cursor:pointer" onclick="openContract('${c.id}')"><td>${fmtDate(c.created_at)}</td><td>${esc(c.terms.contractee_name)}</td><td>${esc(nm[c.event_id]||'')}</td><td>${money(c.terms.total)}</td><td>${pill(c.status)}${c.signed_at?`<br><span class="muted">${fmtDate(c.signed_at)}</span>`:''}</td></tr>`).join('')}</table>`:'<p class="muted">No contracts here. Create one from an event once the quote is accepted.</p>'}`;
+}
+let CF=null, CUR=null;
+async function openContractForm(eid,cid){
+  const [{data:e},quotes,sel]=await Promise.all([sb.from('events').select('*').eq('id',eid).single(),q(sb.from('quotes').select('*').eq('event_id',eid).order('created_at',{ascending:false})),q(sb.from('event_attractions').select('attraction_id').eq('event_id',eid))]);
+  const org=e.organization_id?(await sb.from('organizations').select('*').eq('id',e.organization_id).single()).data:null;
+  const contact=e.contact_id?(await sb.from('contacts').select('*').eq('id',e.contact_id).single()).data:null;
+  const ex=cid?(await sb.from('contracts').select('*').eq('id',cid).single()).data:null;
+  const picked=new Set(sel.map(r=>r.attraction_id));
+  CF={e,org,contact,quotes,att:attractions.filter(a=>picked.has(a.id)),ex};
+  const qt=ex?quotes.find(x=>x.id===ex.quote_id):(quotes.find(x=>x.status==='accepted')||quotes.find(x=>x.status==='sent')||quotes[0]);
+  const t=ex?ex.terms:ContractDoc.defaults({org,contact,event:e,quote:qt,attractions:CF.att});
+  const f=(k,l,type)=>`<div><label>${l}</label><input id="c_${k}" type="${type||'text'}" value="${esc(t[k])}"></div>`;
+  $('dlg').innerHTML=`<h2>${ex?'Edit':'New'} contract — ${esc(e.name)}</h2>
+   ${!org?'<p class="err">This event has no customer yet. Pick one on the event first so the contract can fill from the customer record.</p>':''}
+   <div class="row"><div><label>Based on quote</label><select id="c_quote" onchange="cfQuote()"><option value="">(none)</option>${quotes.map(x=>`<option value="${x.id}" ${qt&&x.id===qt.id?'selected':''}>${fmtDate(x.created_at)} · ${x.booths} booths × ${x.days} days · ${money(x.total)} · ${x.status}</option>`).join('')}</select></div>
+   ${f('contractee_name','Contractee (customer) name')}${f('contractee_address','Contractee address')}${f('contractee_phone','Phone')}${f('start_date','Start date','date')}${f('end_date','End date','date')}${f('times_text','Times of engagement')}${f('contractor_date','Contractor date')}</div>
+   <label>Type of entertainment (one per line)</label><textarea id="c_ent" rows="4">${esc((t.entertainment||[]).join('\n'))}</textarea>
+   <label>Requirements (one per line)</label><textarea id="c_req" rows="5">${esc((t.requirements||[]).join('\n'))}</textarea>
+   <label>Price lines (one per line: description | amount — discounts negative)</label><textarea id="c_price" rows="4">${esc((t.price_lines||[]).map(l=>l.label+' | '+l.amount).join('\n'))}</textarea>
+   <div class="row"><div><label>Retainer ($) — blank = 1/3 of total</label><input id="c_ret" type="number" step="any" value="${t.retainer&&t.total&&Math.abs(t.retainer-t.total/3)>0.01?t.retainer:''}"></div></div>
+   <p><button class="s" onclick="cfPreview()">Preview</button> <button class="p" onclick="saveContract(false)">Save draft</button> <button class="p" onclick="saveContract(true)">Save &amp; mark sent</button> <button class="s" onclick="${ex?`openContract('${ex.id}')`:`openEvent('${eid}')`}">Cancel</button></p>
+   <div id="c_prev"></div>`;
+  $('dlg').showModal();
+}
+function cfQuote(){
+  const qt=CF.quotes.find(x=>x.id===$('c_quote').value);
+  const t=ContractDoc.defaults({org:CF.org,contact:CF.contact,event:CF.e,quote:qt,attractions:CF.att});
+  $('c_ent').value=t.entertainment.join('\n');$('c_price').value=t.price_lines.map(l=>l.label+' | '+l.amount).join('\n');$('c_ret').value='';
+}
+function cfTerms(){
+  const lines=$('c_price').value.split('\n').map(l=>l.trim()).filter(Boolean).map(l=>{const i=l.lastIndexOf('|');return i<0?{label:l,amount:0}:{label:l.slice(0,i).trim(),amount:+l.slice(i+1).replace(/[$,\s]/g,'')||0}}).filter(l=>l.label);
+  const total=Math.round(lines.reduce((a,l)=>a+l.amount,0)*100)/100, retainer=+$('c_ret').value||Math.round(total/3*100)/100;
+  const ls=id=>$(id).value.split('\n').map(x=>x.trim()).filter(Boolean), v=k=>$('c_'+k).value.trim();
+  return {contractee_name:v('contractee_name'),contractee_address:v('contractee_address'),contractee_phone:v('contractee_phone'),start_date:v('start_date'),end_date:v('end_date'),times_text:v('times_text'),contractor_date:v('contractor_date'),entertainment:ls('c_ent'),requirements:ls('c_req'),price_lines:lines,total,retainer,final:Math.round((total-retainer)*100)/100};
+}
+function cfPreview(){$('c_prev').innerHTML='<hr>'+ContractDoc.render(cfTerms());$('c_prev').scrollIntoView({behavior:'smooth'})}
+async function saveContract(send){
+  const t=cfTerms();if(!t.contractee_name||!t.total){alert('Contractee name and at least one price line are required.');return}
+  if(!t.start_date||!t.end_date){alert('Enter the contracted start and end dates — they are recorded on the event when the contract is signed.');return}
+  const row={event_id:CF.e.id,quote_id:$('c_quote').value||null,contact_id:CF.e.contact_id,organization_id:CF.e.organization_id,title:t.start_date.slice(0,4)+' Agreement',terms:t,body_html:ContractDoc.render(t)};
+  if(send){row.status='sent';row.sent_at=new Date().toISOString()}
+  let id=CF.ex&&CF.ex.id;
+  if(id){const {error}=await sb.from('contracts').update(row).eq('id',id);if(error){alert(error.message);return}}
+  else{row.created_by=ME.name;const {data,error}=await sb.from('contracts').insert(row).select().single();if(error){alert(error.message);return}id=data.id}
+  openContract(id);if(tab==='Contracts')Contracts();
+}
+const signLink=c=>location.origin+'/sign/?t='+c.sign_token;
+async function openContract(id){
+  const {data:c}=await sb.from('contracts').select('*').eq('id',id).single();CUR=c;
+  const contact=c.contact_id?(await sb.from('contacts').select('*').eq('id',c.contact_id).single()).data:null;
+  const sub=encodeURIComponent('Farmtastic FunZone agreement — please review and sign'), body=encodeURIComponent(`Hello ${contact?contact.name:''},\n\nYour Farmtastic FunZone agreement is ready. You can review and sign it online here:\n${signLink(c)}\n\nThank you!\nApril & Steve\nFarmtastic FunZone · 936-223-1433`);
+  const live=c.status==='sent';
+  $('dlg').innerHTML=`<h2>${esc(c.title)} ${pill(c.status)}</h2><p class="muted">${esc(c.terms.contractee_name)}${c.sent_at?` · sent ${fmtDate(c.sent_at)}`:''}${c.signed_at?` · signed ${fmtDate(c.signed_at)}`:''}</p>
+   <p>${c.status==='draft'?`<button class="p" onclick="markSent('${id}')">Mark as sent</button> `:''}${c.status==='draft'||live?`<button class="s" onclick="openContractForm('${c.event_id}','${id}')">Edit</button> `:''}${c.status!=='void'?`<button class="s" onclick="copyLink()">Copy signing link</button> ${contact&&contact.email?`<a class="s" style="text-decoration:none;color:inherit;display:inline-block" href="mailto:${esc(contact.email)}?subject=${sub}&body=${body}">✉ Email link</a> `:''}`:''}
+   ${c.status==='signed'||c.status==='sent'?`<button class="s" onclick="printContract()">Print / PDF</button> `:''}<button class="s" onclick="openEvent('${c.event_id}')">Open event</button> <button class="s" onclick="$('dlg').close()">Close</button>
+   ${c.status==='draft'?`<button class="s" style="float:right;color:var(--barn)" onclick="delContract('${id}')">Delete</button>`:c.status!=='void'?`<button class="s" style="float:right;color:var(--barn)" onclick="voidContract('${id}')">Void</button>`:''}</p>
+   ${c.status==='sent'?'<p class="muted">Waiting for the customer to sign. They can sign from the emailed link or by logging in at /portal/.</p>':''}
+   <div id="cdoc" style="background:#fff;border:1px solid var(--line);border-radius:10px;padding:18px">${c.body_html}</div>${c.status==='signed'?ContractDoc.signedBlock(c):''}`;
+  const sg=$('cdoc').querySelector('[data-sig]');if(sg&&c.signed_name)sg.innerHTML=`<i style="font:italic 20px Georgia,serif">${esc(c.signed_name)}</i>`;
+  $('dlg').showModal();
+}
+function copyLink(){navigator.clipboard.writeText(signLink(CUR)).then(()=>alert('Signing link copied. Paste it into an email or text.'),()=>prompt('Copy this link:',signLink(CUR)))}
+async function markSent(id){await q(sb.from('contracts').update({status:'sent',sent_at:new Date().toISOString()}).eq('id',id));openContract(id);if(tab==='Contracts')Contracts()}
+async function voidContract(id){if(!confirm('Void this contract? The customer will no longer be able to sign it.'))return;const {error}=await sb.from('contracts').update({status:'void'}).eq('id',id);if(error)return alert(error.message);openContract(id);if(tab==='Contracts')Contracts()}
+async function delContract(id){if(!confirm('Delete this draft?'))return;await q(sb.from('contracts').delete().eq('id',id));$('dlg').close();go(tab)}
+function printContract(){
+  const w=window.open('','_blank');if(!w)return alert('Allow pop-ups to print.');
+  const sig=CUR.signed_name?`<script>document.querySelector('[data-sig]').innerHTML='<i style="font:italic 20px Georgia,serif">'+${JSON.stringify(esc(CUR.signed_name))}+'</i>'<\/script>`:'';
+  w.document.write(`<!doctype html><title>${esc(CUR.title)}</title><style>body{margin:24px}${ContractDoc.CSS}</style>${CUR.body_html}${CUR.status==='signed'?ContractDoc.signedBlock(CUR):''}${sig}`);
+  w.document.close();setTimeout(()=>w.print(),300);
+}
+
 async function Tasks(){
   const t=await q(sb.from('tasks').select('*').order('done').order('due_date'));
   $('view').innerHTML=`<h2>Tasks</h2><p><input id="tt" placeholder="New task…" style="max-width:340px"> <input id="td" type="date" style="max-width:160px"> <button class="p" onclick="addTask()">Add</button></p>
@@ -148,5 +403,6 @@ async function Tasks(){
 }
 async function addTask(){const title=$('tt').value.trim();if(!title)return;await q(sb.from('tasks').insert({title,due_date:$('td').value||null}));Tasks()}
 async function tick(id,done){await q(sb.from('tasks').update({done}).eq('id',id))}
+$('ccss').textContent=ContractDoc.CSS;
 boot();
 </script></body></html>

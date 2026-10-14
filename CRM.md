@@ -7,11 +7,28 @@ Hosting stays on Netlify (no VPS / Node server needed — SMS goes through a Sup
 | Piece | Where | Notes |
 |---|---|---|
 | Website | `*.html` | `contact.html` now also writes the request into the CRM as a lead (Netlify Forms email stays as backup). |
-| CRM | `/admin/` | Dashboard, leads pipeline, events (with attractions, quote builder, invoices, notes), fairs/orgs, tasks. |
+| CRM | `/admin/` | Dashboard (clickable tiles), leads, customers (record with contacts, events, contracts, quotes, invoices, payments), events (list + month calendar), quotes, contracts, invoices, tasks. |
+| Customer portal | `/portal/` | Customers sign in with an emailed link (or a password they set). Read-only view of their own events, quotes (accept/decline), agreements (sign), invoices and payment history. |
+| Signing page | `/sign/?t=<token>` | No login: the emailed link. Shows the agreement and records a typed-name signature. |
 | Crew app | `/app/` | Installable PWA (Add to Home Screen): upcoming events + load-in notes + directions, call/text leads, tasks. |
 | Database | `supabase/migrations/20261003_farmtastic_crm.sql` | All tables staff-only via RLS. The public site can only call `submit_lead()`. |
 | Lead SMS | `supabase/functions/notify-lead` | Texts the owner on each new lead (DB webhook). |
 | Pricing | `shared/pricing.js` | Same grid as `pricing.html`; `node shared/pricing.test.js`. |
+
+## Sales flow
+Customer record → quote sent → quote accepted → contract created from the customer + quote + event → contract
+sent (copy link / email link) → customer signs (emailed link or portal) → signed copy stored on the customer
+record, event set to **confirmed** with the contracted dates (shown on Events → Calendar), quote marked accepted,
+lead marked won. A signed contract can't be edited or deleted (database trigger) — void it and make a new one.
+- Contract wording lives in `shared/contract.js` (from the 2027 Loredo agreement). The rendered text is stored on the
+  contract row when it is saved, so later wording changes never alter a sent/signed contract. `node shared/contract.test.js`.
+- Retainer = 1/3 of the total, final = the rest (editable on the contract form).
+- Migration `supabase/migrations/20261014_contracts_portal.sql`: `contracts`, `payments`, customer read-only RLS via
+  `my_contact_ids()` (login email must be **verified** and match a contact's email), `get_contract` / `sign_contract`
+  (token, anon-callable), `respond_to_quote` (customer, own quotes only).
+- Contracts are emailed with a link (CRM "✉ Email link" opens your mail app; "Copy signing link" for texts). There's no
+  automatic email sender yet — that needs an email provider (Resend/SendGrid) + an edge function.
+- Add `https://www.farmtasticfunzone.com/portal/` (or `/**`) to Supabase Auth → Redirect URLs for portal sign-in links.
 
 ## Go-live steps
 1. ~~Create a Supabase project~~ — done: **Farmtastic Fun Zone** (`ciydqepqhqfqhptpqily`, us-east-1, org LMX Rentals LLC). Separate from the AllStar Moonwalks project. Migration already applied and `shared/supabase-config.js` filled in.
