@@ -61,6 +61,6 @@ async function tasks(){
   $('view').innerHTML=t.map(x=>`<div class="card"><label><input type="checkbox" onchange="done('${x.id}')" style="width:auto"> ${esc(x.title)}</label> <span class="muted">${fmtDate(x.due_date)}</span></div>`).join('')||'<p class="muted">All caught up.</p>';
 }
 async function done(id){await rows(sb.from('tasks').update({done:true}).eq('id',id));tasks()}
-function me(){$('view').innerHTML=`<div class="card"><b>${esc(ME.name)}</b><br>${esc(ME.email)}<br><span class="pill">${esc(ME.role)}</span><div class="btns"><button class="b" onclick="signOut()">Sign out</button></div><p class="muted">Tip: use Share → Add to Home Screen to install.</p></div>`}
+function me(){$('view').innerHTML=`<div class="card"><b>${esc(ME.name)}</b><br>${esc(ME.email)}<br><span class="pill">${esc(ME.role)}</span><div class="btns"><button class="b" onclick="openChangePassword()">Change password</button> <button class="b" onclick="signOut()">Sign out</button></div><p class="muted">Tip: use Share → Add to Home Screen to install.</p></div>`}
 boot();
 </script></body></html>

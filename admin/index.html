@@ -31,7 +31,7 @@ dialog{border:0;border-radius:12px;max-width:640px;width:94%;padding:20px}dialog
 </style></head><body>
 <div id="gate"></div>
 <div id="app" hidden>
-<header><h1>🌾 Farmtastic Fun Zone CRM</h1><span id="who" class="muted" style="color:#fff9"></span><button onclick="signOut()">Sign out</button></header>
+<header><h1>🌾 Farmtastic Fun Zone CRM</h1><span id="who" class="muted" style="color:#fff9"></span><button onclick="openChangePassword()">Change password</button><button onclick="signOut()">Sign out</button></header>
 <nav id="nav"></nav><main id="view"></main>
 <dialog id="dlg"></dialog>
 </div>
@@ -39,7 +39,8 @@ dialog{border:0;border-radius:12px;max-width:640px;width:94%;padding:20px}dialog
 <script src="../shared/pricing.js"></script>
 <script src="../shared/crm-core.js"></script>
 <script>
-const TABS=['Dashboard','Leads','Events','Organizations','Tasks'];
+const TABS=['Dashboard','Leads','Events','Quotes','Invoices','Organizations','Tasks'];
+let filt={};
 let tab='Dashboard', ME=null, attractions=[];
 const $=id=>document.getElementById(id);
 const pill=s=>`<span class="pill ${esc(s)}">${esc(s)}</span>`;
@@ -59,29 +60,50 @@ async function boot(){
 }
 async function doReset(){try{await resetPassword($('em').value);$('lerr').style.color='#3f6b2f';$('lerr').textContent='Check your email for a link.'}catch(x){$('lerr').textContent=x.message}}
 async function doLogin(e){e.preventDefault();try{await signIn($('em').value,$('pw').value);location.reload()}catch(x){$('lerr').textContent=x.message}}
-function go(t){tab=t;document.querySelectorAll('nav button').forEach(b=>b.classList.toggle('on',b.dataset.t===t));({Dashboard,Leads,Events,Organizations,Tasks})[t]()}
+function go(t){tab=t;document.querySelectorAll('nav button').forEach(b=>b.classList.toggle('on',b.dataset.t===t));({Dashboard,Leads,Events,Quotes,Invoices,Organizations,Tasks})[t]()}
+function goF(t,f){filt={...f};go(t)}
 
 async function Dashboard(){
   const today=new Date().toISOString().slice(0,10);
-  const [leads,events,inv,tasks]=await Promise.all([q(sb.from('leads').select('status')),q(sb.from('events').select('*').gte('end_date',today).neq('status','cancelled').order('start_date').limit(8)),q(sb.from('invoices').select('amount,status')),q(sb.from('tasks').select('id').eq('done',false))]);
+  const [leads,events,inv,tasks,qs]=await Promise.all([q(sb.from('leads').select('status')),q(sb.from('events').select('*').gte('end_date',today).neq('status','cancelled').order('start_date').limit(8)),q(sb.from('invoices').select('amount,status')),q(sb.from('tasks').select('id').eq('done',false)),q(sb.from('quotes').select('status'))]);
   const n=s=>leads.filter(l=>l.status===s).length, owed=inv.filter(i=>i.status==='unpaid').reduce((a,i)=>a+ +i.amount,0), paid=inv.filter(i=>i.status==='paid').reduce((a,i)=>a+ +i.amount,0);
+  const T=(t,f,v,l)=>`<div class="card stat" style="cursor:pointer" onclick='goF("${t}",${JSON.stringify(f)})'><b>${v}</b>${l}</div>`;
   $('view').innerHTML=`<div class="grid">
-   <div class="card stat"><b>${n('new')}</b>New leads</div><div class="card stat"><b>${n('quoted')}</b>Quotes out</div>
-   <div class="card stat"><b>${money(owed)}</b>Unpaid invoices</div><div class="card stat"><b>${money(paid)}</b>Collected</div>
-   <div class="card stat"><b>${tasks.length}</b>Open tasks</div></div>
+   ${T('Leads',{status:'new'},n('new'),'New leads')}${T('Quotes',{status:'sent'},qs.filter(x=>x.status==='sent').length,'Quotes out')}
+   ${T('Invoices',{status:'unpaid'},money(owed),'Unpaid invoices')}${T('Invoices',{status:'paid'},money(paid),'Collected')}
+   ${T('Tasks',{},tasks.length,'Open tasks')}</div>
    <h3>Upcoming events</h3>${evTable(events)}`;
 }
 const evTable=ev=>ev.length?`<table><tr><th>Event</th><th>Dates</th><th>Where</th><th>Status</th></tr>${ev.map(e=>`<tr style="cursor:pointer" onclick="openEvent('${e.id}')"><td>${esc(e.name)}</td><td>${fmtDate(e.start_date)} – ${fmtDate(e.end_date)}</td><td>${esc(e.city||e.venue)}</td><td>${pill(e.status)}</td></tr>`).join('')}</table>`:'<p class="muted">Nothing yet.</p>';
 
+const chips=(t,opts,cur)=>`<p>${['all',...opts].map(o=>`<button class="s" style="${(cur||'all')===o?'background:var(--barn);color:#fff':''}" onclick='goF("${t}",${JSON.stringify(o==='all'?{}:{status:o})})'>${o}</button>`).join(' ')}</p>`;
 async function Leads(){
-  const leads=await q(sb.from('leads').select('*').order('created_at',{ascending:false}));
-  $('view').innerHTML=`<h2>Leads</h2><table><tr><th>Received</th><th>Who</th><th>Interest</th><th>Status</th><th></th></tr>${leads.map(l=>`<tr>
-   <td>${fmtDate(l.created_at)}</td><td><b>${esc(l.name)}</b><br>${esc(l.organization)}<br><a href="mailto:${esc(l.email)}">${esc(l.email)}</a> ${l.phone?`· <a href="${telHref(l.phone)}">${esc(l.phone)}</a>`:''}</td>
-   <td>${esc(l.event_dates)}<br>${esc(l.booths_interest)}<br><span class="muted">${esc(l.message)}</span></td>
-   <td><select onchange="setLead('${l.id}',this.value)">${['new','contacted','quoted','won','lost'].map(s=>`<option ${s===l.status?'selected':''}>${s}</option>`).join('')}</select></td>
-   <td><button class="s" onclick="leadToEvent('${l.id}')">→ Event</button></td></tr>`).join('')}</table>`;
+  let qy=sb.from('leads').select('*').order('created_at',{ascending:false});if(filt.status)qy=qy.eq('status',filt.status);
+  const leads=await q(qy);
+  $('view').innerHTML=`<h2>Leads</h2>${chips('Leads',['new','contacted','quoted','won','lost'],filt.status)}${leads.length?`<table><tr><th>Received</th><th>Who</th><th>Interest</th><th>Status</th></tr>${leads.map(l=>`<tr style="cursor:pointer" onclick="openLead('${l.id}')">
+   <td>${fmtDate(l.created_at)}</td><td><b>${esc(l.name)}</b><br>${esc(l.organization)}<br>${esc(l.email)} ${l.phone?`· ${esc(l.phone)}`:''}</td>
+   <td>${esc(l.event_dates)}<br>${esc(l.booths_interest)}<br><span class="muted">${esc((l.message||'').slice(0,90))}</span></td>
+   <td>${pill(l.status)}</td></tr>`).join('')}</table>`:'<p class="muted">No leads here.</p>'}`;
 }
-async function setLead(id,status){await q(sb.from('leads').update({status}).eq('id',id))}
+async function openLead(id){
+  const {data:l}=await sb.from('leads').select('*').eq('id',id).single();
+  const acts=await q(sb.from('activities').select('*').eq('lead_id',id).order('created_at',{ascending:false}));
+  const f=(k,lab,type)=>`<div><label>${lab}</label><input id="l_${k}" type="${type||'text'}" value="${esc(l[k])}"></div>`;
+  $('dlg').innerHTML=`<h2>${esc(l.name)}</h2><p class="muted">Received ${fmtDate(l.created_at)}${l.phone?` · <a href="${telHref(l.phone)}">Call</a> · <a href="${smsHref(l.phone)}">Text</a>`:''}${l.email?` · <a href="mailto:${esc(l.email)}">Email</a>`:''}</p>
+   <div class="row">${f('name','Name')}${f('organization','Organization')}${f('email','Email','email')}${f('phone','Phone')}${f('event_dates','Event dates')}${f('booths_interest','Booths interested in')}
+   <div><label>Status</label><select id="l_status">${['new','contacted','quoted','won','lost'].map(x=>`<option ${x===l.status?'selected':''}>${x}</option>`).join('')}</select></div></div>
+   <label>Message</label><textarea id="l_message" rows="4">${esc(l.message)}</textarea>
+   <p><button class="p" onclick="saveLead('${id}')">Save</button> ${l.event_id?`<button class="s" onclick="openEvent('${l.event_id}')">Open event</button>`:`<button class="s" onclick="leadToEvent('${id}')">→ Make event</button>`} <button class="s" onclick="$('dlg').close()">Close</button></p>
+   <h3>Notes</h3><textarea id="newnote" rows="2" placeholder="Add a note…"></textarea><button class="s" onclick="addLeadNote('${id}')">Add</button>
+   ${acts.map(a=>`<p class="muted">${fmtDate(a.created_at)} · ${esc(a.created_by)}: ${esc(a.body)}</p>`).join('')}`;
+  $('dlg').showModal();
+}
+async function saveLead(id){
+  const v=k=>$('l_'+k).value.trim()||null;
+  await q(sb.from('leads').update({name:v('name'),organization:v('organization'),email:v('email'),phone:v('phone'),event_dates:v('event_dates'),booths_interest:v('booths_interest'),message:v('message'),status:$('l_status').value}).eq('id',id));
+  $('dlg').close();go(tab);
+}
+async function addLeadNote(id){const b=$('newnote').value.trim();if(!b)return;await q(sb.from('activities').insert({lead_id:id,body:b,created_by:ME.name}));openLead(id)}
 async function leadToEvent(id){
   const {data:l}=await sb.from('leads').select('*').eq('id',id).single();
   const [org]=await q(sb.from('organizations').insert({name:l.organization||l.name}).select());
@@ -136,6 +158,60 @@ async function mkInvoice(eid,total,kind){
 }
 async function markPaid(iid,eid){await q(sb.from('invoices').update({status:'paid',paid_at:new Date().toISOString()}).eq('id',iid));openEvent(eid)}
 async function addNote(eid){const b=$('newnote').value.trim();if(!b)return;await q(sb.from('activities').insert({event_id:eid,body:b,created_by:ME.name}));openEvent(eid)}
+
+async function Quotes(){
+  let qy=sb.from('quotes').select('*').order('created_at',{ascending:false});if(filt.status)qy=qy.eq('status',filt.status);
+  const [qs,ev]=await Promise.all([q(qy),q(sb.from('events').select('id,name'))]);const nm=Object.fromEntries(ev.map(e=>[e.id,e.name]));
+  $('view').innerHTML=`<h2>Quotes</h2>${chips('Quotes',['draft','sent','accepted','declined'],filt.status)}${qs.length?`<table><tr><th>Created</th><th>Event</th><th>Package</th><th>Total</th><th>Status</th></tr>${qs.map(x=>`<tr style="cursor:pointer" onclick="openQuote('${x.id}')"><td>${fmtDate(x.created_at)}</td><td>${esc(nm[x.event_id]||'')}</td><td>${x.booths} booths × ${x.days} days${x.craft_station?' + craft':''}</td><td><b>${money(x.total)}</b></td><td>${pill(x.status)}</td></tr>`).join('')}</table>`:'<p class="muted">No quotes here. Build one from an event.</p>'}`;
+}
+async function openQuote(id){
+  const {data:x}=await sb.from('quotes').select('*').eq('id',id).single();
+  const {data:e}=x.event_id?await sb.from('events').select('id,name').eq('id',x.event_id).single():{data:null};
+  const n=(k,lab,step)=>`<div><label>${lab}</label><input id="q_${k}" type="number" step="${step||'any'}" value="${x[k]}" oninput="qSum()"></div>`;
+  $('dlg').innerHTML=`<h2>Quote${e?` — ${esc(e.name)}`:''}</h2><p class="muted">Created ${fmtDate(x.created_at)}</p>
+   <div class="row"><div><label>Booths</label><select id="q_booths" onchange="qAuto()">${[4,6,8,10].map(b=>`<option ${b==x.booths?'selected':''}>${b}</option>`).join('')}</select></div>
+   ${n('days','Days','1')}<div><label>Craft station</label><select id="q_craft" onchange="qAuto()"><option value="false">No</option><option value="true" ${x.craft_station?'selected':''}>Yes</option></select></div>
+   <div><label>Status</label><select id="q_status">${['draft','sent','accepted','declined'].map(s2=>`<option ${s2===x.status?'selected':''}>${s2}</option>`).join('')}</select></div>
+   ${n('per_day','Per day ($)')}${n('craft_fee','Craft station ($)')}${n('travel_fee','Travel ($)')}${n('discount','Discount ($)')}</div>
+   <p style="font-size:20px"><b>Total: <span id="q_total">${money(x.total)}</span></b> <span class="muted" style="font-size:13px">(per day × days + craft + travel − discount)</span></p>
+   <p><button class="s" onclick="qAuto()">Reset to standard pricing</button></p>
+   <p><button class="p" onclick="saveQuote('${id}')">Save</button> ${e?`<button class="s" onclick="openEvent('${e.id}')">Open event</button>`:''} ${x.status==='accepted'&&x.event_id?`<button class="s" onclick="mkInvoice('${x.event_id}',${x.total},'deposit')">Deposit invoice</button>`:''}
+   <button class="s" onclick="$('dlg').close()">Close</button> <button class="s" style="float:right;color:var(--barn)" onclick="delQuote('${id}')">Delete</button></p>`;
+  $('dlg').showModal();
+}
+const qv=k=>+$('q_'+k).value||0;
+function qSum(){$('q_total').textContent=money(Math.round((qv('per_day')*qv('days')+qv('craft_fee')+qv('travel_fee')-qv('discount'))*100)/100)}
+function qAuto(){
+  try{const r=FarmPricing.quote({booths:qv('booths'),days:qv('days')||1,craft:$('q_craft').value==='true',travelFee:qv('travel_fee'),discount:qv('discount')});
+    $('q_per_day').value=r.perDay;$('q_craft_fee').value=r.craftFee;qSum()}catch(x){alert(x.message)}
+}
+async function saveQuote(id){
+  const total=Math.round((qv('per_day')*qv('days')+qv('craft_fee')+qv('travel_fee')-qv('discount'))*100)/100;
+  await q(sb.from('quotes').update({booths:qv('booths'),days:Math.max(1,qv('days')),craft_station:$('q_craft').value==='true',per_day:qv('per_day'),craft_fee:qv('craft_fee'),travel_fee:qv('travel_fee'),discount:qv('discount'),total,status:$('q_status').value}).eq('id',id));
+  $('dlg').close();go(tab);
+}
+async function delQuote(id){if(!confirm('Delete this quote?'))return;await q(sb.from('quotes').delete().eq('id',id));$('dlg').close();go(tab)}
+
+async function Invoices(){
+  let qy=sb.from('invoices').select('*').order('created_at',{ascending:false});if(filt.status)qy=qy.eq('status',filt.status);
+  const [inv,ev]=await Promise.all([q(qy),q(sb.from('events').select('id,name'))]);const nm=Object.fromEntries(ev.map(e=>[e.id,e.name]));
+  $('view').innerHTML=`<h2>Invoices</h2>${chips('Invoices',['unpaid','paid','void'],filt.status)}${inv.length?`<table><tr><th>Number</th><th>Event</th><th>Kind</th><th>Amount</th><th>Due</th><th>Status</th></tr>${inv.map(i=>`<tr style="cursor:pointer" onclick="openInvoice('${i.id}')"><td>${esc(i.number)}</td><td>${esc(nm[i.event_id]||'')}</td><td>${esc(i.kind)}</td><td><b>${money(i.amount)}</b></td><td>${fmtDate(i.due_date)}</td><td>${pill(i.status)}</td></tr>`).join('')}</table>`:'<p class="muted">No invoices here.</p>'}`;
+}
+async function openInvoice(id){
+  const {data:i}=await sb.from('invoices').select('*').eq('id',id).single();
+  $('dlg').innerHTML=`<h2>Invoice ${esc(i.number)}</h2><p class="muted">Created ${fmtDate(i.created_at)}${i.paid_at?` · Paid ${fmtDate(i.paid_at)}`:''}</p>
+   <div class="row"><div><label>Kind</label><select id="i_kind">${['deposit','balance','full'].map(k=>`<option ${k===i.kind?'selected':''}>${k}</option>`).join('')}</select></div>
+   <div><label>Amount ($)</label><input id="i_amount" type="number" step="any" value="${i.amount}"></div>
+   <div><label>Due date</label><input id="i_due" type="date" value="${i.due_date||''}"></div>
+   <div><label>Status</label><select id="i_status">${['unpaid','paid','void'].map(k=>`<option ${k===i.status?'selected':''}>${k}</option>`).join('')}</select></div></div>
+   <p><button class="p" onclick="saveInvoice('${id}',${i.paid_at?'true':'false'})">Save</button> ${i.event_id?`<button class="s" onclick="openEvent('${i.event_id}')">Open event</button>`:''} <button class="s" onclick="$('dlg').close()">Close</button></p>`;
+  $('dlg').showModal();
+}
+async function saveInvoice(id,hadPaid){
+  const st=$('i_status').value, upd={kind:$('i_kind').value,amount:+$('i_amount').value||0,due_date:$('i_due').value||null,status:st};
+  if(st==='paid'&&!hadPaid)upd.paid_at=new Date().toISOString();if(st!=='paid')upd.paid_at=null;
+  await q(sb.from('invoices').update(upd).eq('id',id));$('dlg').close();go(tab);
+}
 
 async function Organizations(){
   const [orgs,contacts]=await Promise.all([q(sb.from('organizations').select('*').order('name')),q(sb.from('contacts').select('*'))]);
