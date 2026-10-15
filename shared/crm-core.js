@@ -32,10 +32,8 @@ async function resetPassword(email) {
   const { error } = await sb.auth.resetPasswordForEmail(email, { redirectTo: location.origin + location.pathname });
   if (error) throw error;
 }
-// When the user lands from the reset email, supabase-js signs them in and fires PASSWORD_RECOVERY:
-// show a "choose a password" form on top of the page.
-if (sb) sb.auth.onAuthStateChange((event) => {
-  if (event !== 'PASSWORD_RECOVERY') return;
+// "Choose a password" form shown on top of the page (after a reset/invite link was used).
+function passwordOverlay() {
   const box = document.createElement('div');
   box.style.cssText = 'position:fixed;inset:0;background:#fbf3e0;z-index:99;display:grid;place-items:center;padding:16px';
   box.innerHTML = '<form style="background:#fff;border:1px solid #d9c9a0;border-radius:12px;padding:20px;max-width:340px;width:100%;font:16px system-ui">' +
@@ -48,7 +46,31 @@ if (sb) sb.auth.onAuthStateChange((event) => {
     else { history.replaceState(null, '', location.pathname); location.reload(); }
   };
   document.body.appendChild(box);
-});
+}
+// When the user lands from Supabase's own reset email, supabase-js signs them in and fires PASSWORD_RECOVERY.
+if (sb) sb.auth.onAuthStateChange((event) => { if (event === 'PASSWORD_RECOVERY') passwordOverlay(); });
+
+// Invite / password links from our own emails look like  /admin/?token_hash=…&type=recovery.  The one-time token is only
+// spent when the person presses the button here — email security scanners pre-open links, which used up plain one-time links.
+(function () {
+  const p = new URLSearchParams(location.search), th = p.get('token_hash');
+  if (!sb || !th || p.get('type') !== 'recovery') return;
+  history.replaceState(null, '', location.pathname);
+  const show = () => {
+    const box = document.createElement('div');
+    box.style.cssText = 'position:fixed;inset:0;background:#fbf3e0;z-index:99;display:grid;place-items:center;padding:16px';
+    box.innerHTML = '<div style="background:#fff;border:1px solid #d9c9a0;border-radius:12px;padding:20px;max-width:340px;width:100%;font:16px system-ui;color:#2b200a">' +
+      '<h3 style="margin-top:0">Farmtastic FunZone</h3><p>Press the button to set your password.</p><p id="tke" style="color:#a8321f"></p>' +
+      '<button id="tkb" style="background:#a8321f;color:#fff;border:0;border-radius:8px;padding:10px 16px;font-weight:600">Set my password</button></div>';
+    box.querySelector('#tkb').onclick = async () => {
+      const { error } = await sb.auth.verifyOtp({ token_hash: th, type: 'recovery' });
+      if (error) { box.querySelector('#tke').textContent = 'This link has expired or was already used. Ask an admin to send a new one, or use "Forgot / set password" on the sign-in page.'; return; }
+      box.remove(); passwordOverlay();
+    };
+    document.body.appendChild(box);
+  };
+  document.readyState === 'loading' ? document.addEventListener('DOMContentLoaded', show) : show();
+})();
 
 // Supabase puts auth failures in the URL hash (e.g. #error_code=otp_expired&error_description=...).
 // Surface them as a readable message instead of leaving the user on a confusing page.
