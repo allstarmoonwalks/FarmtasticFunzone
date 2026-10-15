@@ -76,22 +76,22 @@ function goF(t,f){filt={...f};go(t)}
 
 async function Dashboard(){
   const today=new Date().toISOString().slice(0,10);
-  const [leads,events,inv,tasks,qs,cons]=await Promise.all([q(sb.from('leads').select('status')),q(sb.from('events').select('*').gte('end_date',today).neq('status','cancelled').order('start_date').limit(8)),q(sb.from('invoices').select('amount,status')),q(sb.from('tasks').select('id').eq('done',false)),q(sb.from('quotes').select('status')),q(sb.from('contracts').select('status'))]);
+  const [leads,events,inv,tasks,qs,cons]=await Promise.all([q(sb.from('leads').select('status')),q(sb.from('events').select('*, event_staff(employee_id, employees(name))').gte('end_date',today).neq('status','cancelled').order('start_date').limit(8)),q(sb.from('invoices').select('amount,status')),q(sb.from('tasks').select('id').eq('done',false)),q(sb.from('quotes').select('status')),q(sb.from('contracts').select('status'))]);
   const n=s=>leads.filter(l=>l.status===s).length, owed=inv.filter(i=>i.status==='unpaid').reduce((a,i)=>a+ +i.amount,0), paid=inv.filter(i=>i.status==='paid').reduce((a,i)=>a+ +i.amount,0);
   const T=(t,f,v,l)=>`<div class="card stat" style="cursor:pointer" onclick='goF("${t}",${JSON.stringify(f)})'><b>${v}</b>${l}</div>`;
-  $('view').innerHTML=`<div class="grid">
+  $('view').innerHTML=`<p style="margin-top:0"><button class="p" onclick="openNewLead()">+ New lead</button></p><div class="grid">
    ${T('Leads',{status:'new'},n('new'),'New leads')}${T('Quotes',{status:'sent'},qs.filter(x=>x.status==='sent').length,'Quotes out')}
    ${T('Contracts',{status:'sent'},cons.filter(c=>c.status==='sent').length,'Awaiting signature')}${T('Invoices',{status:'unpaid'},money(owed),'Unpaid invoices')}${T('Invoices',{status:'paid'},money(paid),'Collected')}
    ${T('Tasks',{},tasks.length,'Open tasks')}</div>
    <h3>Upcoming events</h3>${evTable(events)}`;
 }
-const evTable=ev=>ev.length?`<table><tr><th>Event</th><th>Dates</th><th>Where</th><th>Status</th></tr>${ev.map(e=>`<tr style="cursor:pointer" onclick="openEvent('${e.id}')"><td>${esc(e.name)}</td><td>${fmtDate(e.start_date)} – ${fmtDate(e.end_date)}</td><td>${esc(e.city||e.venue)}</td><td>${pill(e.status)}</td></tr>`).join('')}</table>`:'<p class="muted">Nothing yet.</p>';
+const evTable=ev=>ev.length?`<table><tr><th>Event</th><th>Dates</th><th>Where</th><th>Team</th><th>Status</th></tr>${ev.map(e=>`<tr style="cursor:pointer" onclick="openEvent('${e.id}')"><td>${esc(e.name)}</td><td>${fmtDate(e.start_date)} – ${fmtDate(e.end_date)}</td><td>${esc(e.city||e.venue)}</td><td>${esc((e.event_staff||[]).map(x=>x.employees&&x.employees.name).filter(Boolean).join(', '))}</td><td>${pill(e.status)}</td></tr>`).join('')}</table>`:'<p class="muted">Nothing yet.</p>';
 
 const chips=(t,opts,cur)=>`<p>${['all',...opts].map(o=>`<button class="s" style="${(cur||'all')===o?'background:var(--barn);color:#fff':''}" onclick='goF("${t}",${JSON.stringify(o==='all'?{}:{status:o})})'>${o}</button>`).join(' ')}</p>`;
 async function Leads(){
   let qy=sb.from('leads').select('*').order('created_at',{ascending:false});if(filt.status)qy=qy.eq('status',filt.status);
   const leads=await q(qy);
-  $('view').innerHTML=`<h2>Leads</h2>${chips('Leads',['new','contacted','quoted','won','lost'],filt.status)}${leads.length?`<table><tr><th>Received</th><th>Who</th><th>Interest</th><th>Status</th></tr>${leads.map(l=>`<tr style="cursor:pointer" onclick="openLead('${l.id}')">
+  $('view').innerHTML=`<h2>Leads <button class="p" style="float:right" onclick="openNewLead()">+ New lead</button></h2>${chips('Leads',['new','contacted','quoted','won','lost'],filt.status)}${leads.length?`<table><tr><th>Received</th><th>Who</th><th>Interest</th><th>Status</th></tr>${leads.map(l=>`<tr style="cursor:pointer" onclick="openLead('${l.id}')">
    <td>${fmtDate(l.created_at)}</td><td><b>${esc(l.name)}</b><br>${esc(l.organization)}<br>${esc(l.email)} ${l.phone?`· ${esc(l.phone)}`:''}</td>
    <td>${esc(l.event_dates)}<br>${esc(l.booths_interest)}<br><span class="muted">${esc((l.message||'').slice(0,90))}</span></td>
    <td>${pill(l.status)}</td></tr>`).join('')}</table>`:'<p class="muted">No leads here.</p>'}`;
@@ -108,6 +108,21 @@ async function openLead(id){
    <h3>Notes</h3><textarea id="newnote" rows="2" placeholder="Add a note…"></textarea><button class="s" onclick="addLeadNote('${id}')">Add</button>
    ${acts.map(a=>`<p class="muted">${fmtDate(a.created_at)} · ${esc(a.created_by)}: ${esc(a.body)}</p>`).join('')}`;
   $('dlg').showModal();
+}
+function openNewLead(){
+  const f=(k,l,t)=>`<div><label>${l}</label><input id="nl_${k}" type="${t||'text'}"></div>`;
+  $('dlg').innerHTML=`<h2>New lead</h2><div class="row">${f('name','Name *')}${f('organization','Fair / organization')}${f('email','Email','email')}${f('phone','Phone')}${f('event_dates','Event dates')}${f('booths_interest','Booths interested in')}</div>
+   <label>Notes</label><textarea id="nl_message" rows="3"></textarea><p id="nl_err" class="err"></p>
+   <p><button class="p" onclick="createLead()">Save lead</button> <button class="s" onclick="$('dlg').close()">Cancel</button></p>`;
+  $('dlg').showModal();
+}
+async function createLead(){
+  const v=k=>$('nl_'+k).value.trim()||null, name=v('name'), email=v('email');
+  if(!name)return $('nl_err').textContent='Name is required.';
+  if(email&&!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email))return $('nl_err').textContent='That email address doesn\'t look right.';
+  const {error}=await sb.from('leads').insert({name,organization:v('organization'),email,phone:v('phone'),event_dates:v('event_dates'),booths_interest:v('booths_interest'),message:v('message'),source:'crm'});
+  if(error)return $('nl_err').textContent=error.message;
+  $('dlg').close();go(tab==='Dashboard'?'Leads':tab);
 }
 async function saveLead(id){
   const v=k=>$('l_'+k).value.trim()||null;
@@ -143,15 +158,18 @@ function calGrid(ev){
    <div class="cal">${['Sun','Mon','Tue','Wed','Thu','Fri','Sat'].map(x=>`<div class="cal-h">${x}</div>`).join('')}${body}</div>
    ${undated.length?`<p class="muted">No dates yet: ${undated.map(e=>`<a href="#" onclick="openEvent('${e.id}');return false">${esc(e.name)}</a>`).join(', ')}</p>`:''}`;
 }
+let evMine=false;
+function setEvMine(v){evMine=v;Events()}
 async function Events(){
-  const ev=await q(sb.from('events').select('*').order('start_date',{ascending:evView==='cal'}));
-  $('view').innerHTML=`<h2>Events <span class="tog" style="margin-left:10px;font-size:14px"><button class="s ${evView==='list'?'on':''}" onclick="setEvView('list')">List</button><button class="s ${evView==='cal'?'on':''}" onclick="setEvView('cal')">Calendar</button></span> <button class="p" style="float:right" onclick="newEvent()">+ New event</button></h2>${evView==='cal'?calGrid(ev):evTable(ev)}`;
+  let ev=await q(sb.from('events').select('*, event_staff(employee_id, employees(name))').order('start_date',{ascending:evView==='cal'}));
+  if(evMine)ev=ev.filter(e=>(e.event_staff||[]).some(x=>x.employee_id===ME.id));
+  $('view').innerHTML=`<h2>Events <span class="tog" style="margin-left:10px;font-size:14px"><button class="s ${evView==='list'?'on':''}" onclick="setEvView('list')">List</button><button class="s ${evView==='cal'?'on':''}" onclick="setEvView('cal')">Calendar</button></span> <span class="tog" style="margin-left:6px;font-size:14px"><button class="s ${!evMine?'on':''}" onclick="setEvMine(false)">All</button><button class="s ${evMine?'on':''}" onclick="setEvMine(true)">Assigned to me</button></span> <button class="p" style="float:right" onclick="newEvent()">+ New event</button></h2>${evView==='cal'?calGrid(ev):evTable(ev)}`;
 }
 async function newEvent(oid,cid){const [e]=await q(sb.from('events').insert({name:'New event',organization_id:oid||null,contact_id:cid||null}).select());if(e)openEvent(e.id)}
 async function openEvent(id){
   const {data:e}=await sb.from('events').select('*').eq('id',id).single();
-  const [orgs,contacts,cons,quotes,inv,acts,sel]=await Promise.all([q(sb.from('organizations').select('id,name').order('name')),q(sb.from('contacts').select('id,name,organization_id').order('name')),q(sb.from('contracts').select('id,status,title,sent_at,signed_at,signed_name').eq('event_id',id).order('created_at',{ascending:false})),q(sb.from('quotes').select('*').eq('event_id',id).order('created_at',{ascending:false})),q(sb.from('invoices').select('*').eq('event_id',id)),q(sb.from('activities').select('*').eq('event_id',id).order('created_at',{ascending:false})),q(sb.from('event_attractions').select('attraction_id').eq('event_id',id))]);
-  const picked=new Set(sel.map(s=>s.attraction_id)), days=daysBetween(e.start_date,e.end_date)||1;
+  const [staffAll,staffSel,orgs,contacts,cons,quotes,inv,acts,sel]=await Promise.all([q(sb.from('employees').select('id,name').eq('status','active').order('name')),q(sb.from('event_staff').select('employee_id').eq('event_id',id)),q(sb.from('organizations').select('id,name').order('name')),q(sb.from('contacts').select('id,name,organization_id').order('name')),q(sb.from('contracts').select('id,status,title,sent_at,signed_at,signed_name').eq('event_id',id).order('created_at',{ascending:false})),q(sb.from('quotes').select('*').eq('event_id',id).order('created_at',{ascending:false})),q(sb.from('invoices').select('*').eq('event_id',id)),q(sb.from('activities').select('*').eq('event_id',id).order('created_at',{ascending:false})),q(sb.from('event_attractions').select('attraction_id').eq('event_id',id))]);
+  const picked=new Set(sel.map(s=>s.attraction_id)), crew=new Set(staffSel.map(s=>s.employee_id)), days=daysBetween(e.start_date,e.end_date)||1;
   const d=$('dlg');d.innerHTML=`<h2>${esc(e.name)}</h2>
    <div class="row"><div><label>Name</label><input id="e_name" value="${esc(e.name)}"></div><div><label>Status</label><select id="e_status">${['tentative','confirmed','completed','cancelled'].map(s=>`<option ${s===e.status?'selected':''}>${s}</option>`).join('')}</select></div>
    <div><label>Customer</label><select id="e_org" onchange="fillContacts()"><option value="">–</option>${orgs.map(o=>`<option value="${o.id}" ${o.id===e.organization_id?'selected':''}>${esc(o.name)}</option>`).join('')}</select></div>
@@ -161,6 +179,7 @@ async function openEvent(id){
    <div><label>Booths</label><select id="e_booths" onchange="qbPreview()"><option value="">–</option>${[4,6,8,10].map(b=>`<option ${b==e.booths?'selected':''}>${b}</option>`).join('')}</select></div>
    <div><label>Craft station</label><select id="e_craft" onchange="qbPreview()"><option value="false">No</option><option value="true" ${e.craft_station?'selected':''}>Yes</option></select></div></div>
    <label>Load-in / notes</label><textarea id="e_notes" rows="3">${esc(e.load_in_notes||e.notes)}</textarea>
+   <label>Assigned team</label><div class="row">${staffAll.map(m=>`<label style="font-weight:400"><input type="checkbox" style="width:auto" class="stf" value="${m.id}" ${crew.has(m.id)?'checked':''}> ${esc(m.name)}</label>`).join('')||'<span class="muted">No team members yet.</span>'}</div>
    <label>Attractions</label><div class="row">${attractions.map(a=>`<label style="font-weight:400"><input type="checkbox" style="width:auto" class="att" value="${a.id}" ${picked.has(a.id)?'checked':''}> ${esc(a.name)}</label>`).join('')}</div>
    <p><button class="p" onclick="saveEvent('${id}')">Save</button> <button class="s" onclick="$('dlg').close()">Close</button></p>
    <h3>Quote</h3><p class="muted">Priced from the price list using the booths, craft station and dates above. Add travel or a discount, then create the quote — you can still edit every number on it afterwards.</p>
@@ -180,6 +199,9 @@ function fillContacts(){const o=$('e_org').value,cur=window._evContact;$('e_cont
 async function saveEvent(id){
   const v=k=>$('e_'+k).value||null;
   await q(sb.from('events').update({name:v('name'),status:v('status'),start_date:v('start'),end_date:v('end'),venue:v('venue'),city:v('city'),organization_id:v('org'),contact_id:v('contact'),booths:v('booths')?+v('booths'):null,craft_station:v('craft')==='true',load_in_notes:v('notes')}).eq('id',id));
+  await sb.from('event_staff').delete().eq('event_id',id);
+  const crewRows=[...document.querySelectorAll('.stf:checked')].map(c=>({event_id:id,employee_id:c.value}));
+  if(crewRows.length)await q(sb.from('event_staff').insert(crewRows));
   await sb.from('event_attractions').delete().eq('event_id',id);
   const rows=[...document.querySelectorAll('.att:checked')].map(c=>({event_id:id,attraction_id:c.value}));
   if(rows.length)await q(sb.from('event_attractions').insert(rows));
