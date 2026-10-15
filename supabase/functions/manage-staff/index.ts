@@ -41,15 +41,18 @@ async function ensureUser(email: string, password?: string): Promise<{ id: strin
   if (link.id) return { id: link.id, created: false };
   throw new Error("Could not create the login: " + (await r.text()).slice(0, 200));
 }
-async function generateLink(email: string): Promise<{ id?: string; action_link?: string }> {
+async function generateLink(email: string): Promise<{ id?: string; action_link?: string; token_hash?: string }> {
   const r = await fetch(`${URL_}/auth/v1/admin/generate_link`, {
     method: "POST", headers: svc,
     body: JSON.stringify({ type: "recovery", email, redirect_to: `${site()}/admin/` }),
   });
   if (!r.ok) return {};
   const j = await r.json();
-  return { id: j.id || j.user?.id, action_link: j.action_link || j.properties?.action_link };
+  return { id: j.id || j.user?.id, action_link: j.action_link || j.properties?.action_link, token_hash: j.hashed_token || j.properties?.hashed_token };
 }
+// The email links to OUR page with the one-time token, and the token is only used when the person presses the button there.
+// (A plain Supabase action link gets "used up" by email security scanners that pre-open every link.)
+const inviteLink = (tokenHash: string, role: string) => `${site()}/${role === "crew" ? "app" : "admin"}/?token_hash=${encodeURIComponent(tokenHash)}&type=recovery`;
 async function sendInvite(name: string, email: string, link: string, isReset: boolean) {
   const apiKey = Deno.env.get("RESEND_API_KEY");
   if (!apiKey) return "Email isn't set up (RESEND_API_KEY missing).";
@@ -105,21 +108,21 @@ Deno.serve(async (req) => {
       let emailed = false, email_error = "";
       if (b.send_invite) {
         const link = await generateLink(email);
-        email_error = link.action_link ? await sendInvite(name, email, link.action_link, false) : "Could not create a sign-in link.";
+        email_error = link.token_hash ? await sendInvite(name, email, inviteLink(link.token_hash, b.role), false) : "Could not create a sign-in link.";
         emailed = !email_error;
       }
       return json({ ok: true, employee: emp, emailed, email_error, existing_login: !u.created });
     }
 
     const emp = b.employee_id && /^[0-9a-f-]{36}$/i.test(b.employee_id)
-      ? (await (await rest(`employees?id=eq.${b.employee_id}&select=id,name,email`)).json())?.[0] : null;
+      ? (await (await rest(`employees?id=eq.${b.employee_id}&select=id,name,email,role`)).json())?.[0] : null;
     if (!emp) return json({ error: "Team member not found." }, 404);
 
     if (b.action === "invite") {
       await ensureUser(emp.email);
       const link = await generateLink(emp.email);
-      if (!link.action_link) return json({ error: "Could not create a sign-in link." }, 502);
-      const err = await sendInvite(emp.name, emp.email, link.action_link, true);
+      if (!link.token_hash) return json({ error: "Could not create a sign-in link." }, 502);
+      const err = await sendInvite(emp.name, emp.email, inviteLink(link.token_hash, emp.role), true);
       if (err) return json({ error: err }, 502);
       return json({ ok: true, to: emp.email });
     }
