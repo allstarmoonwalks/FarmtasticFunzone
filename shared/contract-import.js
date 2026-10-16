@@ -1,0 +1,134 @@
+/* Farmtastic Fun Zone — reads a rental agreement PDF's text (from pdf.js) into structured contract fields.
+   Built for the 2027 agreement layout (shared/contract.js). Anything it can't find is left blank and listed in
+   `warnings`, so the CRM review screen can ask the admin to fill it in. Browser global (window.ContractImport) + Node module. */
+(function (root, factory) {
+  if (typeof module === 'object' && module.exports) module.exports = factory();
+  else root.ContractImport = factory();
+})(typeof self !== 'undefined' ? self : this, function () {
+  'use strict';
+  const MONTHS = ['january', 'february', 'march', 'april', 'may', 'june', 'july', 'august', 'september', 'october', 'november', 'december'];
+  const monthIdx = s => { s = String(s || '').toLowerCase().replace(/\./g, ''); const i = MONTHS.findIndex(m => m === s || (s.length >= 3 && m.startsWith(s))); return i; };
+  const pad = n => String(n).padStart(2, '0');
+  const iso = (y, m, d) => `${y}-${pad(m + 1)}-${pad(d)}`;
+  const clean = s => String(s || '').replace(/[•⦁▪●·]/g, '•').replace(/[ \t ]+/g, ' ').trim();
+  const noUnderscores = s => clean(String(s || '').replace(/_+/g, ' ')).replace(/^[:\-\s]+|[:\-\s]+$/g, '');
+
+  // pdf.js text items -> text lines (grouped by baseline, left to right). PDFs often split words/numbers into separate
+  // runs, so a space is only added where there is a real gap between runs.
+  function itemsToLines(items) {
+    const rows = [];
+    for (const it of items) {
+      if (!it.str) continue;
+      const y = Math.round(it.transform[5]);
+      let row = rows.find(r => Math.abs(r.y - y) <= 3);
+      if (!row) rows.push(row = { y, parts: [] });
+      row.parts.push({ x: it.transform[4], w: it.width || 0, h: Math.abs(it.transform[3]) || it.height || 10, s: it.str });
+    }
+    rows.sort((a, b) => b.y - a.y);
+    return rows.map(r => {
+      let out = '', end = null;
+      for (const p of r.parts.sort((a, b) => a.x - b.x)) {
+        if (end !== null && p.x - end > 0.2 * p.h && !/\s$/.test(out) && !/^\s/.test(p.s)) out += ' ';
+        out += p.s; end = p.x + p.w;
+      }
+      return out.replace(/\s+/g, ' ').trim();
+    }).filter(Boolean);
+  }
+
+  // "February 24-27, 2027", "Feb 27 - March 2, 2027", "December 30, 2026 - January 2, 2027", "2/24/2027 - 2/27/2027", "October 1st 2026"
+  function parseDateRange(str) {
+    const t = String(str || '').replace(/(\d)(st|nd|rd|th)\b/gi, '$1').replace(/\s+/g, ' ').trim();
+    let m;
+    if ((m = /([A-Za-z]{3,9})\.? (\d{1,2}) ?[-–—to]+ ?(\d{1,2}),? (\d{4})/.exec(t)) && monthIdx(m[1]) >= 0)
+      return { start: iso(+m[4], monthIdx(m[1]), +m[2]), end: iso(+m[4], monthIdx(m[1]), +m[3]) };
+    if ((m = /([A-Za-z]{3,9})\.? (\d{1,2}),? (\d{4}) ?[-–—] ?([A-Za-z]{3,9})\.? (\d{1,2}),? (\d{4})/.exec(t)) && monthIdx(m[1]) >= 0 && monthIdx(m[4]) >= 0)
+      return { start: iso(+m[3], monthIdx(m[1]), +m[2]), end: iso(+m[6], monthIdx(m[4]), +m[5]) };
+    if ((m = /([A-Za-z]{3,9})\.? (\d{1,2}) ?[-–—] ?([A-Za-z]{3,9})\.? (\d{1,2}),? (\d{4})/.exec(t)) && monthIdx(m[1]) >= 0 && monthIdx(m[3]) >= 0)
+      return { start: iso(+m[5], monthIdx(m[1]), +m[2]), end: iso(+m[5], monthIdx(m[3]), +m[4]) };
+    if ((m = /(\d{1,2})\/(\d{1,2})\/(\d{4}) ?[-–—to]+ ?(\d{1,2})\/(\d{1,2})\/(\d{4})/.exec(t)))
+      return { start: iso(+m[3], +m[1] - 1, +m[2]), end: iso(+m[6], +m[4] - 1, +m[5]) };
+    if ((m = /([A-Za-z]{3,9})\.? (\d{1,2}),? (\d{4})/.exec(t)) && monthIdx(m[1]) >= 0) { const d = iso(+m[3], monthIdx(m[1]), +m[2]); return { start: d, end: d }; }
+    if ((m = /(\d{1,2})\/(\d{1,2})\/(\d{4})/.exec(t))) { const d = iso(+m[3], +m[1] - 1, +m[2]); return { start: d, end: d }; }
+    return { start: '', end: '' };
+  }
+  const parseOneDate = s => parseDateRange(s).start;
+
+  // "7128 E. Saunders St., Loredo, TX 78041" -> {address, city, state, zip}
+  function splitAddress(a) {
+    a = clean(a);
+    const m = /^(.*?),\s*([^,]+?),?\s+([A-Z]{2})\.?,?\s+(\d{5})(?:-\d{4})?$/.exec(a);
+    return m ? { address: m[1].trim(), city: m[2].trim(), state: m[3], zip: m[4] } : { address: a, city: '', state: '', zip: '' };
+  }
+  const money = s => { const m = /(-?)\s*\$?\s*(-?)\s*([\d,]+(?:\.\d{1,2})?)/.exec(s); return m ? (m[1] || m[2] ? -1 : 1) * parseFloat(m[3].replace(/,/g, '')) : null; };
+  const between = (text, a, b) => { const i = text.search(a); if (i < 0) return ''; const rest = text.slice(i).replace(a, ''); const j = b ? rest.search(b) : -1; return j < 0 ? rest : rest.slice(0, j); };
+  const bullets = block => block.split(/•|\n(?=\s*[-*]\s)/).map(x => clean(x.replace(/\n/g, ' ').replace(/^[-*]\s*/, ''))).filter(Boolean);
+
+  function parse(textOrLines) {
+    const lines = (Array.isArray(textOrLines) ? textOrLines : String(textOrLines).split(/\r?\n/)).map(clean).filter(Boolean);
+    const text = lines.join('\n'), flat = lines.join(' ');
+    const out = { warnings: [] };
+    const miss = (cond, msg) => { if (cond) out.warnings.push(msg); };
+
+    out.year = (/(\d{4})\s+AGREEMENT/i.exec(text) || [])[1] || '';
+    let m = /\band\s+([\s\S]+?)\s*,?\s*here\s*-?\s*in\s*-?\s*after\s+referred\s+to\s+as\s+Contractee/i.exec(flat);
+    out.contractee_name = m ? clean(m[1]).replace(/,$/, '') : '';
+    miss(!out.contractee_name, 'Could not find the customer name.');
+
+    out.dates_text = clean((/Contracted\s+dates?:\s*([^\n]+)/i.exec(text) || [])[1] || '');
+    const dr = parseDateRange(out.dates_text);
+    out.start_date = dr.start; out.end_date = dr.end;
+    miss(!out.start_date, 'Could not read the contracted dates.');
+
+    const addr = clean(between(text, /Address of Contractee:/i, /Phone Number:/i).replace(/\n/g, ' '));
+    Object.assign(out, { contractee_address: addr }, (() => { const s = splitAddress(addr); return { street: s.address, city: s.city, state: s.state, zip: s.zip }; })());
+    out.contractee_phone = clean((/Phone Number:\s*([^\n]*?)(?:\s+Times of Engagements?:|$)/im.exec(text) || [])[1] || '');
+    out.times_text = clean(between(text, /Times of Engagements?:/i, /Type of Entertainment:/i).replace(/\n/g, ' '));
+
+    out.entertainment = bullets(between(text, /Type of Entertainment:/i, /Requirements:/i));
+    out.requirements = bullets(between(text, /Requirements:/i, /Price Agreed upon:/i));
+    const entText = out.entertainment.join(' ');
+    m = /(\d+)\s+Entertainment\s*\/\s*Educational\s+Booths?/i.exec(entText); out.booths = m ? +m[1] : 0;
+    m = /(\d+)\s+Days?\s+of\s+Entertainment/i.exec(entText); out.days = m ? +m[1] : 0;
+    if (!out.days && out.start_date) out.days = Math.round((new Date(out.end_date) - new Date(out.start_date)) / 864e5) + 1;
+    miss(!out.booths, 'Could not find the booth count.');
+
+    // booth names inside the first entertainment bullet: "4 Entertainment/Educational Booths (A, B, C (note))"
+    const par = /\((.*)\)\s*$/.exec(out.entertainment.find(e => /Booths?/i.test(e)) || '');
+    out.booth_names = par ? par[1].split(/,(?![^(]*\))/).map(x => clean(x.replace(/\(.*$/, ''))).filter(x => x && x.length <= 40 && !/\$/.test(x)) : [];
+
+    // price block
+    const block = between(text, /Price Agreed upon:/i, /Contractor agrees to deliver|The parties agree/i);
+    out.price_lines = []; out.total = 0; out.retainer = 0; out.final = 0;
+    for (const raw0 of block.split('\n').map(clean).filter(Boolean)) {
+      const raw = raw0.replace(/(\d)\s+(?=[\d,.])/g, '$1').replace(/([,.])\s+(?=\d)/g, '$1');
+      const mm = /^(.*?):?\s*(-?)\s*\$\s*(-?)\s*([\d,]+(?:\.\d{1,2})?)\s*$/.exec(raw);
+      if (!mm) continue;
+      const label = clean(mm[1]).replace(/:$/, ''), amt = (mm[2] || mm[3] ? -1 : 1) * parseFloat(mm[4].replace(/,/g, ''));
+      if (/total\s+cost/i.test(label)) out.total = amt;
+      else if (/retainer/i.test(label)) out.retainer = amt;
+      else if (/final/i.test(label)) out.final = amt;
+      else out.price_lines.push({ label, amount: amt });
+    }
+    const sum = Math.round(out.price_lines.reduce((a, l) => a + l.amount, 0) * 100) / 100;
+    if (!out.total && out.price_lines.length) out.total = sum;
+    miss(!out.price_lines.length, 'Could not find the price lines.');
+    miss(out.total && out.price_lines.length && Math.abs(sum - out.total) > 0.01, `The price lines add up to $${sum.toFixed(2)} but the contract total says $${out.total.toFixed(2)}.`);
+    if (out.total && !out.retainer) out.retainer = Math.round(out.total / 3 * 100) / 100;
+    if (out.total && !out.final) out.final = Math.round((out.total - out.retainer) * 100) / 100;
+    out.craft = /craft/i.test(entText + ' ' + block);
+
+    // contractor date + signature
+    const cd = /DATE:\s*(.*?)\s*DATE:\s*(.*)$/im.exec(text);
+    out.contractor_date = cd ? noUnderscores(cd[2]) : '';
+    const pr = /PRINTED:\s*(.*?)\s*PRINTED:\s*(.*)$/im.exec(text);
+    let signedName = pr ? noUnderscores(pr[1]) : '', signedDate = cd ? noUnderscores(cd[1]) : '';
+    const e = /Signed electronically by\s+(.+?)(?:,\s*([^,]+?))?\s+on\s+([A-Za-z]+ \d{1,2}, \d{4})/i.exec(flat);
+    if (e) { signedName = clean(e[1]); signedDate = e[3]; out.signed_title = e[2] ? clean(e[2]) : ''; }
+    out.signed_name = /[A-Za-z]{2}/.test(signedName) && !/^(April Speight|Steve Allen)/i.test(signedName) ? signedName : '';
+    out.signed_date = out.signed_name ? parseOneDate(signedDate) : '';
+    out.signed = !!out.signed_name;
+    return out;
+  }
+
+  return { itemsToLines, parse, parseDateRange, splitAddress, money, iso };
+});

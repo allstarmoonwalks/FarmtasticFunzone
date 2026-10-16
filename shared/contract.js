@@ -91,9 +91,10 @@
   }
 
   // The signed block appended under the contract (kept separate from body_html so the stored text never changes).
-  function signedBlock({ signed_name, signed_title, signed_at }) {
-    const when = signed_at ? new Date(signed_at).toLocaleString('en-US', { dateStyle: 'long', timeStyle: 'short' }) : '';
-    return `<div class="signed"><b>Signed electronically</b> by ${esc(signed_name)}${signed_title ? ', ' + esc(signed_title) : ''} on ${esc(when)}.</div>`;
+  function signedBlock({ signed_name, signed_title, signed_at, signed_user_agent }) {
+    const imported = /^Imported/i.test(signed_user_agent || '');
+    const when = signed_at ? new Date(signed_at).toLocaleString('en-US', imported ? { dateStyle: 'long' } : { dateStyle: 'long', timeStyle: 'short' }) : '';
+    return `<div class="signed"><b>${imported ? 'Signed' : 'Signed electronically'}</b> by ${esc(signed_name)}${signed_title ? ', ' + esc(signed_title) : ''} on ${esc(when)}${imported ? ' (from the signed PDF copy)' : ''}.</div>`;
   }
 
   const CSS = `.contract{font:15px/1.5 Georgia,serif;max-width:760px;margin:auto}.contract h1{text-align:center;font-size:22px;margin:0 0 6px}
