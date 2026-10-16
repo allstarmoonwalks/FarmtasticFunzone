@@ -56,6 +56,22 @@ contract is stored as **signed**, the quote **accepted**, and the event **confir
   in Financials until their dates are set and they are confirmed. The digital contract keeps the multi-year wording (title years, per-year price labels,
   package subtotal, "Requirements per year", dates-to-be-determined note).
 
+## Inventory and reservations
+**Inventory** tab: every selectable item (booths, tracks, stations…) is an inventory item — add, edit, set the **quantity you own**, deactivate (hidden from new events), or delete
+(admins, only if it's on no event). Items are chosen on each event. A contract that is **sent or signed reserves its event's items for the event's dates**; a draft doesn't.
+A **new contract can't be created** (form, import, email/mark-sent) for dates when an item is already fully reserved by other contracts — the form, the PDF import and the event editor
+all say which item and which event holds it, and the database refuses it too (`contracts_inventory_trg`). Items with quantity 2+ allow that many overlapping bookings. The event editor
+greys out items that are fully reserved for its dates; cancelling an event releases its items. Items on an event only count once it has dates and a sent/signed contract. Booth *counts*
+("10 booths") aren't tied to specific items — only the items you pick are reserved.
+
+## Cancel and delete (events and contracts)
+- **Cancel event…** (event dialog, any staff): sets the event to *cancelled* (off the calendar, out of revenue and receivables), with a reason, and asks what happens to money
+  already received: **keep it** (e.g. non-refundable retainer), **refund** (records a negative payment — the CRM records it, it doesn't send money), or **hold as credit**
+  toward a future event (`events.credit_held`, shown on the customer record). Optionally voids open contracts and unpaid invoices. Reinstate by setting Status back and saving.
+- **Delete event…** (admins): permanently removes the event with its quotes, contracts and invoices (and stored PDFs). **Blocked when payments are recorded** — cancel instead, so payment history is kept.
+- **Delete contract** (admins any status, others drafts only): a *signed* contract needs the admin to type DELETE (database trigger allows signed deletes only for admins); the stored PDF is removed too. Void keeps the record.
+- Imported contracts now put the contracted dates and times on the event even when unsigned (shown as a *tentative* event); signing confirms it.
+
 ## Financials (admins only)
 Revenue by month and year, modeled on the AllStar reports (Revenue by Month, Annual Revenue, Monthly Payments, Receivables): **Overview**
 (year KPIs, revenue-vs-cash chart, month table + CSV), **Payments received**, **Receivables**, **By year** (with growth). Revenue = signed contract
