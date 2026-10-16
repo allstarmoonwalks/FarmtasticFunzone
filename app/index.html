@@ -24,7 +24,7 @@ input,textarea{font:inherit;width:100%;padding:10px;border:1px solid var(--line)
 .cal{display:grid;grid-template-columns:repeat(7,1fr);gap:3px;margin-bottom:12px}.ch{font-size:11px;font-weight:700;text-align:center;color:#7a6a45}
 .cd{background:#fff;border:1px solid var(--line);border-radius:8px;min-height:52px;padding:3px 0;font-size:13px;text-align:center;cursor:pointer}.cd.off{visibility:hidden}.cd.sel{outline:2px solid var(--barn)}.cd.today{background:#fff0c2}
 .dot{display:inline-block;width:8px;height:8px;border-radius:50%;margin:1px}.dot.confirmed{background:#3f6b2f}.dot.tentative{background:#d99a1e}.dot.completed{background:#999}.dot.mine{box-shadow:0 0 0 2px #a8321f}
-.muted{color:#7a6a45;font-size:14px}.err{color:var(--barn)}
+.muted{color:#7a6a45;font-size:14px}.row2{display:grid;grid-template-columns:1fr 1fr;gap:8px}.err{color:var(--barn)}
 </style></head><body>
 <header><b>🌾 Farmtastic Crew</b><span id="who"></span></header>
 <main id="view"><p class="muted">Loading…</p></main>
@@ -42,7 +42,7 @@ async function boot(){
   if(r.error==='not-staff'){$('view').innerHTML=`<div class="card"><h3>No crew access</h3><p>${esc(r.user.email)} isn't an active crew member.</p><button class="b" onclick="signOut()">Sign out</button></div>`;return}
   ME=r.employee;$('who').textContent=ME.name;$('nav').hidden=false;
   $('nav').onclick=e=>{const t=e.target.dataset.t;if(!t)return;document.querySelectorAll('nav button').forEach(b=>b.classList.toggle('on',b===e.target));({today,leads,tasks,me})[t]()};
-  today();
+  today();refreshTaskBadge();
 }
 async function doReset(){try{await resetPassword($('em').value);$('le').style.color='#3f6b2f';$('le').textContent='Check your email for a link.'}catch(x){$('le').textContent=x.message}}
 async function login(e){e.preventDefault();try{await signIn($('em').value,$('pw').value);location.reload()}catch(x){$('le').textContent=x.message}}
@@ -118,11 +118,36 @@ async function addLead(){
   await rows(sb.from('leads').insert({name,phone:$('lp').value.trim()||null,email:email||null,organization:$('lo').value.trim()||null,source:'app'}));leads();
 }
 async function mark(id){await rows(sb.from('leads').update({status:'contacted'}).eq('id',id));leads()}
+async function refreshTaskBadge(){const t=await rows(sb.from('tasks').select('id').eq('assigned_to',ME.id).eq('done',false));$('nav').querySelector('[data-t=tasks]').textContent='Tasks'+(t.length?' ('+t.length+')':'')}
+let taskMode='mine', TK=[], TSTAFF=[], TEV={};
 async function tasks(){
-  const t=await rows(sb.from('tasks').select('*').eq('done',false).order('due_date'));
-  $('view').innerHTML=t.map(x=>`<div class="card"><label><input type="checkbox" onchange="done('${x.id}')" style="width:auto"> ${esc(x.title)}</label> <span class="muted">${fmtDate(x.due_date)}</span></div>`).join('')||'<p class="muted">All caught up.</p>';
+  const [t,staff,evs]=await Promise.all([rows(sb.from('tasks').select('*').order('due_date')),rows(sb.from('employees').select('id,name').eq('status','active').order('name')),rows(sb.from('events').select('id,name'))]);
+  TK=t;TSTAFF=staff;TEV=Object.fromEntries(evs.map(e=>[e.id,e.name]));drawTasks();
 }
-async function done(id){await rows(sb.from('tasks').update({done:true}).eq('id',id));tasks()}
-function me(){$('view').innerHTML=`<div class="card"><b>${esc(ME.name)}</b><br>${esc(ME.email)}<br><span class="pill">${esc(ME.role)}</span><div class="btns"><button class="b" onclick="openChangePassword()">Change password</button> <button class="b" onclick="signOut()">Sign out</button></div><p class="muted">Tip: use Share → Add to Home Screen to install.</p></div>`}
+function setTaskMode(m){taskMode=m;drawTasks()}
+function drawTasks(){
+  const td=isoDay(new Date()), nm=Object.fromEntries(TSTAFF.map(s=>[s.id,s.name]));
+  let list=TK.filter(x=>taskMode==='done'?x.done:!x.done);
+  if(taskMode==='mine')list=list.filter(x=>x.assigned_to===ME.id);
+  list.sort((a,b)=>taskMode==='done'?String(b.completed_at||'').localeCompare(String(a.completed_at||'')):String(a.due_date||'9999').localeCompare(String(b.due_date||'9999')));
+  if(taskMode==='done')list=list.slice(0,40);
+  const open=TK.filter(x=>!x.done&&x.assigned_to===ME.id);
+  $('nav').querySelector('[data-t=tasks]').textContent='Tasks'+(open.length?' ('+open.length+')':'');
+  const seg=`<div class="seg"><button class="${taskMode==='mine'?'on':''}" onclick="setTaskMode('mine')">Mine${open.length?' ('+open.length+')':''}</button><button class="${taskMode==='all'?'on':''}" onclick="setTaskMode('all')">All open</button><button class="${taskMode==='done'?'on':''}" onclick="setTaskMode('done')">Done</button></div>`;
+  const add=`<div class="card"><b>Add a task</b><input id="tn" placeholder="What needs doing?"><div class="row2"><input id="tdue" type="date"><select id="twho"><option value="">Unassigned</option>${TSTAFF.map(s=>`<option value="${s.id}" ${s.id===ME.id?'selected':''}>${esc(s.name)}${s.id===ME.id?' (me)':''}</option>`).join('')}</select></div><button class="b" onclick="addTask()">Add</button></div>`;
+  const cards=list.map(x=>{const over=!x.done&&x.due_date&&x.due_date<td, mineOrFree=x.assigned_to===ME.id||!x.assigned_to;
+    return `<div class="card"><label style="display:flex;gap:10px;align-items:flex-start"><input type="checkbox" style="width:auto;margin-top:4px" ${x.done?'checked':''} ${mineOrFree?'':'disabled'} onchange="completeTask('${x.id}',this.checked)"><span><b${x.done?' style="text-decoration:line-through;color:#7a6a45"':''}>${esc(x.title)}</b><br>
+     <span class="${over?'err':'muted'}">${over?'Overdue · ':''}${x.due_date?'Due '+fmtDate(x.due_date):'No due date'}</span> <span class="muted">· ${x.assigned_to?(x.assigned_to===ME.id?'assigned to me':'assigned to '+esc(nm[x.assigned_to]||'someone')):'unassigned'}${x.event_id&&TEV[x.event_id]?' · '+esc(TEV[x.event_id]):''}</span>
+     ${x.notes?`<br><span class="muted">${esc(x.notes)}</span>`:''}${x.done&&x.completed_at?`<br><span class="muted">✓ ${esc(nm[x.completed_by]||'someone')} · ${fmtDate(x.completed_at)}</span>`:''}${!mineOrFree&&!x.done?'<br><span class="muted">Only the assigned person can complete this.</span>':''}</span></label></div>`}).join('');
+  $('view').innerHTML=seg+add+(cards||`<p class="muted">${taskMode==='mine'?'Nothing assigned to you. 🎉':taskMode==='done'?'Nothing completed yet.':'No open tasks.'}</p>`);
+}
+async function completeTask(id,done){
+  await rows(sb.from('tasks').update({done,completed_at:done?new Date().toISOString():null,completed_by:done?ME.id:null}).eq('id',id));tasks();
+}
+async function addTask(){
+  const title=$('tn').value.trim();if(!title)return;
+  await rows(sb.from('tasks').insert({title,due_date:$('tdue').value||null,assigned_to:$('twho').value||null}));tasks();
+}
+function me(){$('view').innerHTML=`<div class="card"><b>${esc(ME.name)}</b><br>${esc(ME.email)}<br><span class="pill">${esc(String(ME.role).replace('_',' '))}</span><div class="btns"><button class="b" onclick="openChangePassword()">Change password</button> <button class="b" onclick="signOut()">Sign out</button></div><p class="muted">Tip: use Share → Add to Home Screen to install.</p></div>`}
 boot();
 </script></body></html>

@@ -56,6 +56,17 @@ contract is stored as **signed**, the quote **accepted**, and the event **confir
   in Financials until their dates are set and they are confirmed. The digital contract keeps the multi-year wording (title years, per-year price labels,
   package subtotal, "Requirements per year", dates-to-be-determined note).
 
+## Roles
+- **super admin** — everything, plus the only role that can **delete customers, leads and users** and create/change other super admins. (Christian is the super admin.)
+- **admin** — everything else, including the Team tab (add/edit people, email password links, temp passwords), Financials, deleting events/invoices/contracts, cancelling events. Admins **cannot delete customers, leads or users**, and can't create or change a super admin.
+- **manager** / **crew** — as before (crew use the `/app/`).
+Enforced in the database too (`organizations_super_delete`, `leads_super_delete`, `employees_guard_trg`, `is_super_admin()`), and in the `manage-staff` function (delete-user action is super admin only; the last super admin can't be deleted).
+
+## Tasks
+**Tasks** tab: assign a task to a team member with a due date (optionally tied to an event, with notes); filter by status and assignee; overdue dates show red; the assignee (or anyone on the Tasks tab)
+ticks it complete, recording who and when; completed tasks keep that note. Events also show their tasks with "＋ Add task". In the **crew app** the Tasks tab shows **Mine** (with a count badge on the tab),
+**All open** (only the assigned person — or anyone for unassigned tasks — can complete a task), and **Done**, and you can add tasks assigned to anyone.
+
 ## Inventory and reservations
 **Inventory** tab: every selectable item (booths, tracks, stations…) is an inventory item — add, edit, set the **quantity you own**, deactivate (hidden from new events), or delete
 (admins, only if it's on no event). Items are chosen on each event. A contract that is **sent or signed reserves its event's items for the event's dates**; a draft doesn't.
@@ -69,8 +80,8 @@ greys out items that are fully reserved for its dates; cancelling an event relea
   already received: **keep it** (e.g. non-refundable retainer), **refund** (records a negative payment — the CRM records it, it doesn't send money), or **hold as credit**
   toward a future event (`events.credit_held`, shown on the customer record). Optionally voids open contracts and unpaid invoices. Reinstate by setting Status back and saving.
 - **Delete event…** (admins): permanently removes the event with its quotes, contracts, invoices, **payment records** and stored PDFs — a typed DELETE confirmation warns about any payments (they leave your history and Financials; use Cancel to keep records).
-- **Delete customer…** (admins, in the customer record): removes the customer and *everything that belongs to them* — events (also ones linked only through a contact), contracts (incl. signed), quotes, invoices, payments, contacts, converted leads and stored PDFs. The confirmation lists the counts and you must type the customer's name.
-- **Delete lead** (lead detail), **Delete invoice** (admins; you choose whether its payment records go too), **✕ on a contact** and **✕ on a task**. Quotes, payments, inventory items and contracts already had delete buttons.
+- **Delete customer…** (**super admin**, in the customer record): removes the customer and *everything that belongs to them* — events (also ones linked only through a contact), contracts (incl. signed), quotes, invoices, payments, contacts, converted leads and stored PDFs. The confirmation lists the counts and you must type the customer's name.
+- **Delete lead** (super admin, lead detail), **Delete invoice** (admins; you choose whether its payment records go too), **✕ on a contact** and **✕ on a task**. Quotes, payments, inventory items and contracts already had delete buttons.
 - **Delete contract** (admins any status, others drafts only): a *signed* contract needs the admin to type DELETE (database trigger allows signed deletes only for admins); the stored PDF is removed too. Void keeps the record.
 - Imported contracts now put the contracted dates and times on the event even when unsigned (shown as a *tentative* event); signing confirms it.
 
