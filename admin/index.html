@@ -207,6 +207,11 @@ function evSchedFill(){
   if(!sc.length)return alert('Enter the dates above and a times note like "Wednesday and Thursday 4pm-10pm, Friday 4pm-12am" first.');
   $('e_sched').value=Schedule.toLines(sc);
 }
+function evSchedFill(){
+  const sc=Schedule.build(Schedule.parseRules($('e_times').value),$('e_start').value,$('e_end').value||$('e_start').value);
+  if(!sc.length)return alert('Enter the dates above and a times note like "Wednesday and Thursday 4pm-10pm, Friday 4pm-12am" first.');
+  $('e_sched').value=Schedule.toLines(sc);
+}
 function fillContacts(){const o=$('e_org').value,cur=window._evContact;$('e_contact').innerHTML='<option value="">–</option>'+window._evContacts.filter(c=>!o||c.organization_id===o).map(c=>`<option value="${c.id}" ${c.id===cur?'selected':''}>${esc(c.name)}</option>`).join('');window._evContact=''}
 async function openCancelEvent(id){
   const [{data:e},pays,invs,cons]=await Promise.all([sb.from('events').select('*').eq('id',id).single(),q(sb.from('payments').select('*').eq('event_id',id)),q(sb.from('invoices').select('id,status').eq('event_id',id)),q(sb.from('contracts').select('id,status').eq('event_id',id).neq('status','void'))]);
