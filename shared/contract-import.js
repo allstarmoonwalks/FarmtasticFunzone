@@ -6,6 +6,7 @@
   else root.ContractImport = factory();
 })(typeof self !== 'undefined' ? self : this, function () {
   'use strict';
+  const Sched = (typeof self !== 'undefined' && self.Schedule) || (typeof require === 'function' ? require('./schedule.js') : null);
   const MONTHS = ['january', 'february', 'march', 'april', 'may', 'june', 'july', 'august', 'september', 'october', 'november', 'december'];
   const monthIdx = s => { s = String(s || '').toLowerCase().replace(/\./g, ''); const i = MONTHS.findIndex(m => m === s || (s.length >= 3 && m.startsWith(s))); return i; };
   const pad = n => String(n).padStart(2, '0');
@@ -81,12 +82,19 @@
     const out = { warnings: [] };
     const miss = (cond, msg) => { if (cond) out.warnings.push(msg); };
 
-    out.year = (/(\d{4})\s+AGREEMENT/i.exec(text) || [])[1] || '';
+    const ym = /(\d{4})(?:\s*[-–]\s*(\d{4}))?\s+AGREEMENT/i.exec(text);
+    out.year = ym ? ym[1] : ''; out.year_end = ym && ym[2] ? ym[2] : '';
+    out.subtitle = clean((/^(\d+\s*-\s*YEAR\s+CONTRACT)\s*$/im.exec(text) || [])[1] || '');
+    const ymTail = /make\s+((?:\d{4}(?:,\s*|\s+and\s+|,?\s+and\s+)?)+)\s+a\s+success/i.exec(flat);
+    out.closing_years = ymTail ? clean(ymTail[1]) : '';
+    out.years = out.year_end ? Array.from({ length: +out.year_end - +out.year + 1 }, (_, i) => +out.year + i) : (out.year ? [+out.year] : []);
     let m = /\band\s+([\s\S]+?)\s*,?\s*here\s*-?\s*in\s*-?\s*after\s+referred\s+to\s+as\s+Contractee/i.exec(flat);
     out.contractee_name = m ? clean(m[1]).replace(/,$/, '') : '';
     miss(!out.contractee_name, 'Could not find the customer name.');
 
-    out.dates_text = clean((/Contracted\s+dates?:\s*([^\n]+)/i.exec(text) || [])[1] || '');
+    out.dates_text = clean((/Contracted\s+dates?:\s*([^\n]+)/i.exec(text) || [])[1] || '').replace(/\.$/, '');
+    out.dates_note = clean(between(text, /Contracted\s+dates?:[^\n]*\n/i, /Address of Contractee:/i).replace(/\n/g, ' '));
+    if (!/determined|tbd|to be/i.test(out.dates_note)) out.dates_note = '';
     const dr = parseDateRange(out.dates_text);
     out.start_date = dr.start; out.end_date = dr.end;
     miss(!out.start_date, 'Could not read the contracted dates.');
@@ -94,10 +102,14 @@
     const addr = clean(between(text, /Address of Contractee:/i, /Phone(?: Number)?:|Times of Engagements?:|Type of Entertainment:/i).replace(/\n/g, ' ')).slice(0, 200);
     Object.assign(out, { contractee_address: addr }, (() => { const s = splitAddress(addr); return { street: s.address, city: s.city, state: s.state, zip: s.zip }; })());
     out.contractee_phone = clean((/Phone Number:\s*([^\n]*?)(?:\s+Times of Engagements?:|$)/im.exec(text) || [])[1] || '');
-    out.times_text = clean(between(text, /Times of Engagements?:/i, /Type of Entertainment:/i).replace(/\n/g, ' '));
+    out.times_text = between(text, /Times of Engagements?:/i, /Type of Entertainment:/i).split('\n').map(clean).filter(Boolean).join('\n');
+    out.schedule_rules = Sched ? Sched.parseRules(out.times_text) : [];
+    out.schedule = Sched ? Sched.build(out.schedule_rules, out.start_date, out.end_date) : [];
 
-    out.entertainment = bullets(between(text, /Type of Entertainment:/i, /Requirements:/i));
-    out.requirements = bullets(between(text, /Requirements:/i, /Price Agreed upon:/i));
+    out.entertainment = bullets(between(text, /Type of Entertainment:/i, /Requirements[^:\n]*:/i));
+    const reqHead = /Requirements([^:\n]*):/i.exec(text);
+    out.requirements_title = reqHead ? clean('Requirements' + reqHead[1]) : 'Requirements';
+    out.requirements = bullets(between(text, /Requirements[^:\n]*:/i, /Price Agreed upon:/i));
     const entText = out.entertainment.join(' ');
     m = /(\d+)\s+Entertainment\s*\/\s*Educational\s+Booths?/i.exec(entText); out.booths = m ? +m[1] : 0;
     m = /(\d+)\s+Days?\s+of\s+Entertainment/i.exec(entText); out.days = m ? +m[1] : 0;
@@ -106,7 +118,8 @@
 
     // booth names inside the first entertainment bullet: "4 Entertainment/Educational Booths (A, B, C (note))"
     const par = /\((.*)\)\s*$/.exec(out.entertainment.find(e => /Booths?/i.test(e)) || '');
-    out.booth_names = par ? par[1].split(/,(?![^(]*\))/).map(x => clean(x.replace(/\(.*$/, ''))).filter(x => x && x.length <= 40 && !/\$/.test(x)) : [];
+    const extras = out.entertainment.filter(e => !/Booths?\b/i.test(e) && !/Days?\s+of\s+Entertainment/i.test(e)).map(e => clean(e.replace(/\(.*$/, ''))).filter(x => x && x.length <= 60);
+    out.booth_names = par ? par[1].split(/,(?![^(]*\))/).map(x => clean(x.replace(/\(.*$/, ''))).filter(x => x && x.length <= 40 && !/\$/.test(x)).concat(extras) : extras;
 
     // price block
     const block = between(text, /Price Agreed upon:/i, /Contractor agrees to deliver|The parties agree/i);
@@ -116,9 +129,10 @@
       const mm = /^(.*?):?\s*(-?)\s*\$\s*(-?)\s*([\d,]+(?:\.\d{1,2})?)\s*$/.exec(raw);
       if (!mm) continue;
       const label = clean(mm[1]).replace(/:$/, ''), amt = (mm[2] || mm[3] ? -1 : 1) * parseFloat(mm[4].replace(/,/g, ''));
-      if (/total\s+cost/i.test(label)) out.total = amt;
-      else if (/retainer/i.test(label)) out.retainer = amt;
-      else if (/final/i.test(label)) out.final = amt;
+      if (/retainer/i.test(label)) { out.retainer = amt; out.retainer_label = label; }
+      else if (/final\s+check|due\s+(?:up)?on\s+completion|at\s+completion|balance/i.test(label)) { out.final = amt; out.final_label = label; }
+      else if (/cost\s+of\s+package|package\s+(?:cost|price|total)|sub-?total/i.test(label)) { out.package_total = amt; out.package_label = label; }
+      else if (/total\s+cost|final\s+price|price\s+of\s+contract|contract\s+(?:price|total)/i.test(label)) { out.total = amt; out.total_label = label; }
       else out.price_lines.push({ label, amount: amt });
     }
     const sum = Math.round(out.price_lines.reduce((a, l) => a + l.amount, 0) * 100) / 100;
@@ -127,6 +141,7 @@
     miss(out.total && out.price_lines.length && Math.abs(sum - out.total) > 0.01, `The price lines add up to $${sum.toFixed(2)} but the contract total says $${out.total.toFixed(2)}.`);
     if (out.total && !out.retainer) out.retainer = Math.round(out.total / 3 * 100) / 100;
     if (out.total && !out.final) out.final = Math.round((out.total - out.retainer) * 100) / 100;
+    out.per_year = /per\s+year/i.test(block);
     out.craft = /craft/i.test(entText + ' ' + block);
 
     // contractor date + signature

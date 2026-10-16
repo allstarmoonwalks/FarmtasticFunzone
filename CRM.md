@@ -46,6 +46,16 @@ If the PDF is a signed copy (signer name/date on the Contractee lines, or a "Sig
 contract is stored as **signed**, the quote **accepted**, and the event **confirmed with its dates on the calendar**. Unsigned imports create a
 *tentative* event with no dates and a *sent* contract. Migration: `supabase/migrations/20261016_contract_pdf_import.sql`.
 
+### Event times and multi-year contracts
+- **Times of engagement** are read too: "Wednesday and Thursday 4pm-10pm, Friday and Saturday 4pm-12am" becomes a per-day schedule on the contracted dates
+  (`shared/schedule.js`, `node shared/schedule.test.js`; stored in `events.schedule` + `events.times_text`). The review screen shows it as editable lines
+  (`2026-10-21 4pm-10pm`) with a "rebuild from the times above" link; events have the same editor. Times show on the Events list, the calendar chip
+  tooltips, the crew app event cards and the customer portal. Unsigned imports keep the schedule in the contract and it is applied to the event when the contract is signed.
+- **Multi-year contracts** ("2026-2028 AGREEMENT", "3-YEAR CONTRACT", dates to be determined later): the first year's event is scheduled from the dates;
+  with "also create tentative events" ticked, later years get tentative placeholder events (no dates) with the same per-year quote. They show as pipeline
+  in Financials until their dates are set and they are confirmed. The digital contract keeps the multi-year wording (title years, per-year price labels,
+  package subtotal, "Requirements per year", dates-to-be-determined note).
+
 ## Financials (admins only)
 Revenue by month and year, modeled on the AllStar reports (Revenue by Month, Annual Revenue, Monthly Payments, Receivables): **Overview**
 (year KPIs, revenue-vs-cash chart, month table + CSV), **Payments received**, **Receivables**, **By year** (with growth). Revenue = signed contract
