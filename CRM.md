@@ -56,6 +56,14 @@ contract is stored as **signed**, the quote **accepted**, and the event **confir
   in Financials until their dates are set and they are confirmed. The digital contract keeps the multi-year wording (title years, per-year price labels,
   package subtotal, "Requirements per year", dates-to-be-determined note).
 
+## Inventory and reservations
+**Inventory** tab: every selectable item (booths, tracks, stations…) is an inventory item — add, edit, set the **quantity you own**, deactivate (hidden from new events), or delete
+(admins, only if it's on no event). Items are chosen on each event. A contract that is **sent or signed reserves its event's items for the event's dates**; a draft doesn't.
+A **new contract can't be created** (form, import, email/mark-sent) for dates when an item is already fully reserved by other contracts — the form, the PDF import and the event editor
+all say which item and which event holds it, and the database refuses it too (`contracts_inventory_trg`). Items with quantity 2+ allow that many overlapping bookings. The event editor
+greys out items that are fully reserved for its dates; cancelling an event releases its items. Items on an event only count once it has dates and a sent/signed contract. Booth *counts*
+("10 booths") aren't tied to specific items — only the items you pick are reserved.
+
 ## Cancel and delete (events and contracts)
 - **Cancel event…** (event dialog, any staff): sets the event to *cancelled* (off the calendar, out of revenue and receivables), with a reason, and asks what happens to money
   already received: **keep it** (e.g. non-refundable retainer), **refund** (records a negative payment — the CRM records it, it doesn't send money), or **hold as credit**
