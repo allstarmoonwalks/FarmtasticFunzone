@@ -99,3 +99,17 @@ r = CI.parse(base.replace('4 Days of Entertainment', '12 Days of Entertainment')
 assert.equal(r.days, 12); assert.equal(r.start_date, '2027-02-27'); assert.equal(r.end_date, '2027-03-10'); assert.equal(r.craft, true);
 assert.equal(CI.parseDateRange('12/30/2026 - 1/2/2027').end, '2027-01-02'); assert.equal(CI.parseDateRange('October 1st 2026').start, '2026-10-01');
 console.log('contract-import ok');
+// address splitting variants
+const sp = CI.splitAddress;
+const eq = (a, st, ci, sa, zi) => { const r = sp(a); assert.deepEqual([r.address, r.city, r.state, r.zip], [st, ci, sa, zi], a); };
+eq('100 Main St., Sampleton, TX 75001', '100 Main St.', 'Sampleton', 'TX', '75001');
+eq('100 Main St. Sampleton TX 75001', '100 Main St.', 'Sampleton', 'TX', '75001');
+eq('100 Main St., Sampleton, TX. 75001', '100 Main St.', 'Sampleton', 'TX', '75001');
+eq('100 Main Street Sampleton, Texas 75001-1234', '100 Main Street', 'Sampleton', 'TX', '75001');
+eq('1200 County Road 5, Suite 4, San Antonio, TX 78201', '1200 County Road 5, Suite 4', 'San Antonio', 'TX', '78201');
+eq('PO Box 123, Montgomery, TX 77356', 'PO Box 123', 'Montgomery', 'TX', '77356');
+eq('7128 E. Saunders St. Laredo TX', '7128 E. Saunders St.', 'Laredo', 'TX', '');
+eq('100 Main St., Sampleton', '100 Main St.', 'Sampleton', '', '');
+eq('100 Main St., New Braunfels, TX78130'.replace('TX78130', 'TX 78130'), '100 Main St.', 'New Braunfels', 'TX', '78130');
+eq('Fairgrounds Rd 400 N, Sampleton, OK 74001', 'Fairgrounds Rd 400 N', 'Sampleton', 'OK', '74001');
+console.log('addresses ok');

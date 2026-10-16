@@ -398,7 +398,7 @@ async function openImportReview(){
   $('dlg').innerHTML=`<h2>Import contract — review</h2>
    ${r.warnings.length?`<div class="card" style="border-color:var(--barn)"><b class="err">Check these</b><ul style="margin:4px 0">${r.warnings.map(w=>`<li>${esc(w)}</li>`).join('')}</ul></div>`:'<p class="muted">Everything was read from the PDF. Check it, fix anything that looks off, then import.</p>'}
    <h3>Customer</h3><div class="row"><div><label>Customer record</label><select id="ci_org"><option value="">➕ Create new: ${esc(r.contractee_name||'(name needed)')}</option>${orgs.map(o=>`<option value="${o.id}" ${hit&&o.id===hit.id?'selected':''}>${esc(o.name)}${hit&&o.id===hit.id?' (match found)':''}</option>`).join('')}</select></div>
-   ${f('contractee_name','Customer name')}${f('street','Street address')}${f('city','City')}${f('state','State')}${f('zip','ZIP')}${f('contractee_phone','Phone')}
+   ${f('contractee_name','Customer name')}<div><label>Street address <a href="#" onclick="resplitAddr();return false" style="font-weight:400">split city/state/ZIP from this</a></label><input id="ci_street" value="${esc(r.street)}"></div>${f('city','City')}${f('state','State')}${f('zip','ZIP')}${f('contractee_phone','Phone')}
    <div><label>Contact name (optional)</label><input id="ci_cname"></div><div><label>Contact email (for the portal)</label><input id="ci_cemail" type="email"></div></div>
    <h3>Event &amp; items</h3><div class="row">${f('start_date','Start date','date')}${f('end_date','End date','date')}${f('times_text','Times of engagement')}${f('booths','Booths','number')}${f('days','Days','number')}
    <div><label>Craft station</label><select id="ci_craft"><option value="false">No</option><option value="true" ${r.craft?'selected':''}>Yes</option></select></div>${f('contractor_date','Contractor date (as printed)')}</div>
@@ -413,6 +413,11 @@ async function openImportReview(){
 }
 const priceLinesFrom=txt=>txt.split('\n').map(l=>l.trim()).filter(Boolean).map(l=>{const i=l.lastIndexOf('|');return i<0?{label:l,amount:0}:{label:l.slice(0,i).trim(),amount:+l.slice(i+1).replace(/[$,\s]/g,'')||0}}).filter(l=>l.label);
 const round2=n=>Math.round((+n||0)*100)/100;
+function resplitAddr(){
+  const a=ContractImport.splitAddress($('ci_street').value);
+  if(!a.city&&!a.state&&!a.zip)return alert('Could not find a city, state or ZIP in that text. Type them into the boxes.');
+  $('ci_street').value=a.address;if(a.city)$('ci_city').value=a.city;if(a.state)$('ci_state').value=a.state;if(a.zip)$('ci_zip').value=a.zip;
+}
 async function importContract(){
   const v=k=>$('ci_'+k).value.trim(), err=m=>{$('ci_err').textContent=m;return false}, r=window._imp, signed=$('ci_signed').checked, btn=$('ci_go');
   const name=v('contractee_name'),start=v('start_date'),end=v('end_date')||v('start_date'),booths=+v('booths')||0,days=Math.max(1,+v('days')||daysBetween(start,end)||1);

@@ -53,11 +53,23 @@
   }
   const parseOneDate = s => parseDateRange(s).start;
 
-  // "7128 E. Saunders St., Loredo, TX 78041" -> {address, city, state, zip}
-  function splitAddress(a) {
-    a = clean(a);
-    const m = /^(.*?),\s*([^,]+?),?\s+([A-Z]{2})\.?,?\s+(\d{5})(?:-\d{4})?$/.exec(a);
-    return m ? { address: m[1].trim(), city: m[2].trim(), state: m[3], zip: m[4] } : { address: a, city: '', state: '', zip: '' };
+  // "7128 E. Saunders St., Loredo, TX 78041" -> {address, city, state, zip}. Handles missing commas ("... St. Loredo TX 78041"),
+  // "TX." with a period, full state names, ZIP+4, a missing ZIP, and "Suite/Ste/#" parts.
+  const STATES = { AL: 'Alabama', AK: 'Alaska', AZ: 'Arizona', AR: 'Arkansas', CA: 'California', CO: 'Colorado', CT: 'Connecticut', DE: 'Delaware', FL: 'Florida', GA: 'Georgia', HI: 'Hawaii', ID: 'Idaho', IL: 'Illinois', IN: 'Indiana', IA: 'Iowa', KS: 'Kansas', KY: 'Kentucky', LA: 'Louisiana', ME: 'Maine', MD: 'Maryland', MA: 'Massachusetts', MI: 'Michigan', MN: 'Minnesota', MS: 'Mississippi', MO: 'Missouri', MT: 'Montana', NE: 'Nebraska', NV: 'Nevada', NH: 'New Hampshire', NJ: 'New Jersey', NM: 'New Mexico', NY: 'New York', NC: 'North Carolina', ND: 'North Dakota', OH: 'Ohio', OK: 'Oklahoma', OR: 'Oregon', PA: 'Pennsylvania', RI: 'Rhode Island', SC: 'South Carolina', SD: 'South Dakota', TN: 'Tennessee', TX: 'Texas', UT: 'Utah', VT: 'Vermont', VA: 'Virginia', WA: 'Washington', WV: 'West Virginia', WI: 'Wisconsin', WY: 'Wyoming', DC: 'District of Columbia' };
+  const stateCode = t => { t = String(t || '').replace(/\./g, '').trim(); if (/^[A-Za-z]{2}$/.test(t) && STATES[t.toUpperCase()]) return t.toUpperCase(); const hit = Object.keys(STATES).find(k => STATES[k].toLowerCase() === t.toLowerCase()); return hit || ''; };
+  const STATE_RE = '(' + Object.keys(STATES).join('|') + '|' + Object.values(STATES).join('|') + ')';
+  const STREET_END = /^(.*?\b(?:St|Street|Ave|Avenue|Rd|Road|Blvd|Boulevard|Dr|Drive|Ln|Lane|Hwy|Highway|Pkwy|Parkway|Way|Ct|Court|Cir|Circle|Loop|Trl|Trail|Pl|Place|Pike|Sq|Square|Fwy|Freeway|Rte|Route|Box\s*\d+)\b\.?(?:,?\s+(?:Suite|Ste|Unit|Apt|Bldg|Building|#)\.?\s*[\w-]+)?)[,\s]+(\S.*)$/i;
+  function splitAddress(input) {
+    let a = clean(input).replace(/\s*,\s*/g, ', ').replace(/[,\s]+$/, ''), state = '', zip = '', m;
+    if ((m = new RegExp('(?:^|[,\\s])\\s*' + STATE_RE + '\\.?,?\\s+(\\d{5})(?:-\\d{4})?$', 'i').exec(a))) { state = stateCode(m[1]); zip = m[2]; a = a.slice(0, m.index); }
+    else if ((m = new RegExp('(?:^|[,\\s])\\s*' + STATE_RE + '\\.?$', 'i').exec(a)) && stateCode(m[1])) { state = stateCode(m[1]); a = a.slice(0, m.index); }
+    else if ((m = /[,\s]\s*(\d{5})(?:-\d{4})?$/.exec(a))) { zip = m[1]; a = a.slice(0, m.index); }
+    a = a.replace(/[,\s]+$/, '');
+    let street = a, city = '';
+    const parts = a.split(/\s*,\s*/);
+    if (parts.length >= 2) { city = parts.pop(); street = parts.join(', '); }
+    else if ((m = STREET_END.exec(a))) { street = m[1].trim(); city = m[2].trim(); }
+    return { address: street.replace(/,$/, '').trim(), city: city.replace(/^[,\s]+|[,\s.]+$/g, ''), state, zip };
   }
   const money = s => { const m = /(-?)\s*\$?\s*(-?)\s*([\d,]+(?:\.\d{1,2})?)/.exec(s); return m ? (m[1] || m[2] ? -1 : 1) * parseFloat(m[3].replace(/,/g, '')) : null; };
   const between = (text, a, b) => { const i = text.search(a); if (i < 0) return ''; const rest = text.slice(i).replace(a, ''); const j = b ? rest.search(b) : -1; return j < 0 ? rest : rest.slice(0, j); };
@@ -79,7 +91,7 @@
     out.start_date = dr.start; out.end_date = dr.end;
     miss(!out.start_date, 'Could not read the contracted dates.');
 
-    const addr = clean(between(text, /Address of Contractee:/i, /Phone Number:/i).replace(/\n/g, ' '));
+    const addr = clean(between(text, /Address of Contractee:/i, /Phone(?: Number)?:|Times of Engagements?:|Type of Entertainment:/i).replace(/\n/g, ' ')).slice(0, 200);
     Object.assign(out, { contractee_address: addr }, (() => { const s = splitAddress(addr); return { street: s.address, city: s.city, state: s.state, zip: s.zip }; })());
     out.contractee_phone = clean((/Phone Number:\s*([^\n]*?)(?:\s+Times of Engagements?:|$)/im.exec(text) || [])[1] || '');
     out.times_text = clean(between(text, /Times of Engagements?:/i, /Type of Entertainment:/i).replace(/\n/g, ' '));
