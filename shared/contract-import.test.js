@@ -113,3 +113,105 @@ eq('100 Main St., Sampleton', '100 Main St.', 'Sampleton', '', '');
 eq('100 Main St., New Braunfels, TX78130'.replace('TX78130', 'TX 78130'), '100 Main St.', 'New Braunfels', 'TX', '78130');
 eq('Fairgrounds Rd 400 N, Sampleton, OK 74001', 'Fairgrounds Rd 400 N', 'Sampleton', 'OK', '74001');
 console.log('addresses ok');
+
+// multi-year contract with day-specific times
+const multi = `                            2026-2028 AGREEMENT
+                                   3-YEAR CONTRACT
+                                   FarmTastic FunZone
+                                 Steve Allen/April Speight
+                          19727 Mary Lane, Montgomery, TX. 77316
+                                       936-223-1433
+
+This contract is for personal service of entertainment as describes between FarmTastic
+FunZone, here-in-after referred to as Contractor, and Example County Fair, here-in-after
+referred to as Contractee.
+
+Contracted dates: October 21-24, 2026.
+                     2027 and 2028 Dates to be Determined by June of each year
+Address of Contractee: 200 Rodeo Trail Exampleville, Texas 75002
+Phone Number: 555-010-0123
+Times of Engagements: October 21-24, 2026
+       Wednesday and Thursday 4pm-10pm,
+       Friday and Saturday 4pm-12am
+       (Will adjust to your needs with prior notice)
+       Times for 2027 and 2028 to be determined by June of those years.
+Type of Entertainment:
+       ⦁ 10 Entertainment/Educational Booth
+       ⦁ Pedal Tractors Track
+       ⦁ 4 Days of Entertainment
+Requirements per year:
+       ⦁ Level areas for set up
+       ⦁ Electricity if possible
+       ⦁ Entry for Employees
+       ⦁ RV Spot for camper, parking for truck and trailer
+       ⦁ 30 Square bales
+Price Agreed upon:
+       10 booths for 4 days of Educational Entertainment:                             $ 6,440.00
+       Pedal Tractor Track for 4 days of Entertainment:                               $ 644.00
+       Arts and Crafts to be free to public:                                          $ 200.00
+       Cost of package:                                                               $ 7,284.00
+       5% Discount for Bundle with Texan Petting Zoo                                 -$ 364.00
+       Discount for 3-year contract                                                  -$ 300.00
+       Final Price of Contract per year:                                              $ 6,620.00
+       Cost of Retainer 1/3 of contract price per year due by June of each year       $ 2,206.00
+       Amount Due upon Completion of Contract per year                                $ 4,414.00
+
+Contractor agrees to deliver educational entertainment on the date, location, time, and of the type
+of set up above for and in consideration of the contract price. Contractee agrees to pay the full
+contract price for the services of the Contractor.
+The parties agree that the retainer is final and non-refundable unless non-appearance is due to the
+action of the Contractor.
+
+If the Contractee notifies the Contractor of bad weather prior to the Contractor loading up the
+equipment for the appearance, no money is due to the Contractor; however, if the Contractor has
+loaded the equipment for the appearance prior to the Contractee notifying the Contractor, one
+half (50%) of the contract price is due to the Contractor. IF the Contractor arrives at the
+occasion and has proceeded to set up for the appearance the contract price is due even if the
+event is unable to continue due to bad weather. After consultation with the authorized personnel
+of the Contractee, the Contractor shall make the sole decision regarding weather conditions. The
+event, if cancelled due to bad weather, shall be rescheduled on the next available date agreed
+upon by the Contractor and Contractee's engagement.
+
+The Contractor will carry One Million Dollars ($1,000,000.00) in liability insurance during the
+duration of the contract to insure the equipment, employees, and participants from injuries during
+the operation of their contract. Contractor will be held responsible for any and all damages to
+property or persons caused by the result of the operation stated in this contract in which the
+Contractor or its employees or servants may be negligent. Contractee, its Officers, Directors,
+Employees, Agents, and/or Affiliates shall be held responsible for any and all damages and/or
+injuries of any nature to any equipment, personnel, employees, participants, and/or patrons
+affiliated with the Contractor due to Contractors or patrons negligence during or after hours of
+the event.
+
+The Contractor and/or its employees or servants shall have the exclusive right to control the
+operation of the entertainment or any acts or functions other than those agreed to by the
+Contractor, unless approved by the Contractor in advance.
+
+If the Contractee should cancel this agreement outside of twenty (20) days from the engagement,
+it is agreed upon that the Contractee should pay the Contractor an amount of money as liquidated
+damages in the sum of, at least, the amount of the retainer, but no less than one-third (1/3) of the
+contract price. The liquidated damages shall be due and payable on or before ten (10) days from
+the cancellation date. If cancellation is within twenty (20) days of the engagement the full
+contract amount shall be due to the Contractor. All cancellations must be in writing.
+
+If the Contractee agrees to the entirety of the contract stated above, sign and return this contract
+to the Contractor.
+
+Thank you for the opportunity to earn your business. We look forward to working with you to
+make 2026, 2027, and 2028 a success for your Fair, the County, and the Community.
+
+Contractee-                                         Contractor-
+EXAMPLE COUNTY FAIR:                             FARMTASTIC FUNZONE:
+________________       ____                         April Speight , Steve Allen
+PRINTED:________________                            PRINTED:_April Speight and Steve Allen
+DATE:____________________                           DATE: May 14, 2026___________
+`;
+r = CI.parse(multi);
+assert.equal(r.contractee_name, 'Example County Fair'); assert.equal(r.year, '2026'); assert.equal(r.year_end, '2028'); assert.deepEqual(r.years, [2026, 2027, 2028]);
+assert.equal(r.subtitle, '3-YEAR CONTRACT'); assert.equal(r.start_date, '2026-10-21'); assert.equal(r.end_date, '2026-10-24');
+assert.match(r.dates_note, /2027 and 2028/); assert.equal(r.city, 'Exampleville'); assert.equal(r.state, 'TX'); assert.equal(r.street, '200 Rodeo Trail');
+assert.equal(r.total, 6620); assert.equal(r.retainer, 2206); assert.equal(r.final, 4414); assert.equal(r.package_total, 7284); assert.equal(r.per_year, true); assert.equal(r.craft, true);
+assert.deepEqual(r.price_lines.map(l => l.amount), [6440, 644, 200, -364, -300]); assert.equal(r.booths, 10); assert.equal(r.days, 4);
+assert.equal(r.requirements_title, 'Requirements per year'); assert.deepEqual(r.booth_names, ['Pedal Tractors Track']);
+assert.equal(require('./schedule.js').format(r.schedule), 'Wed–Thu 4pm–10pm · Fri–Sat 4pm–12am'); assert.equal(r.schedule.length, 4);
+assert.equal(r.contractor_date, 'May 14, 2026'); assert.equal(r.signed, false);
+console.log('multi-year ok');

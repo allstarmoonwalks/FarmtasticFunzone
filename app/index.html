@@ -30,6 +30,7 @@ input,textarea{font:inherit;width:100%;padding:10px;border:1px solid var(--line)
 <main id="view"><p class="muted">Loading…</p></main>
 <nav id="nav" hidden><button data-t="today" class="on">Events</button><button data-t="leads">Leads</button><button data-t="tasks">Tasks</button><button data-t="me">Me</button></nav>
 <script src="../shared/supabase-config.js"></script>
+<script src="../shared/schedule.js"></script>
 <script src="../shared/crm-core.js"></script>
 <script>
 if('serviceWorker' in navigator)navigator.serviceWorker.register('sw.js').catch(()=>{});
@@ -56,7 +57,7 @@ async function today(){
 function setMode(m){evMode=m;drawEvents()}
 function evCard(e){
   const team=(e.event_staff||[]).map(x=>esc(x.employees&&x.employees.name)).filter(Boolean).join(', ');
-  return `<div class="card"><b>${esc(e.name)}</b> <span class="pill">${esc(e.status)}</span>${mine(e)?' <span class="pill" style="background:#d8ecd0">assigned to me</span>':''}<br>${fmtDate(e.start_date)} – ${fmtDate(e.end_date)}<br>${esc([e.venue,e.city].filter(Boolean).join(', '))}
+  return `<div class="card"><b>${esc(e.name)}</b> <span class="pill">${esc(e.status)}</span>${mine(e)?' <span class="pill" style="background:#d8ecd0">assigned to me</span>':''}<br>${fmtDate(e.start_date)} – ${fmtDate(e.end_date)}${(e.schedule&&e.schedule.length)||e.times_text?`<br>🕓 ${esc(e.schedule&&e.schedule.length?Schedule.format(e.schedule):e.times_text)}`:''}<br>${esc([e.venue,e.city].filter(Boolean).join(', '))}
    ${e.address?`<div class="btns"><a class="b alt" href="https://maps.google.com/?q=${encodeURIComponent(e.address+' '+(e.city||''))}">Directions</a></div>`:''}
    ${e.load_in_notes?`<p class="muted">${esc(e.load_in_notes)}</p>`:''}
    <p class="muted">${(e.event_attractions||[]).map(x=>esc(x.attractions&&x.attractions.name)).join(' · ')}</p>
