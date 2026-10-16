@@ -215,3 +215,24 @@ assert.equal(r.requirements_title, 'Requirements per year'); assert.deepEqual(r.
 assert.equal(require('./schedule.js').format(r.schedule), 'Wed–Thu 4pm–10pm · Fri–Sat 4pm–12am'); assert.equal(r.schedule.length, 4);
 assert.equal(r.contractor_date, 'May 14, 2026'); assert.equal(r.signed, false);
 console.log('multi-year ok');
+
+// contract whose bold subtotal ("Cost of Package") and final line ("Final Contract Cost") must not be counted as charges
+const denton = base.replace(/Contracted dates:[^\n]*/, 'Contracted dates: August 21-30th 2026').replace(/Type of Entertainment:[\s\S]*?Requirements:/, 'Type of Entertainment:\n  ⦁ 10 Entertainment/Educational Booths\n  ⦁ 10 Days of Entertainment\nRequirements:')
+  .replace(/Price Agreed upon:[\s\S]*?Contractor agrees/, `Price Agreed upon:
+  10 days of educational entertainment:        $ 12,880.00
+  Arts and Crafts to be free to public:        $ 400.00
+  Cost of Package:                             $ 13,280.00
+  5% Discount Package with Texan Petting Zoo:  -$ 664.00
+  Final Contract Cost:                         $ 12,616.00
+  Cost of Retainer 1/3 of contract price:      $ 4,205.00
+  Final Check at Completion on Contract:       $ 8,411.00
+
+Contractor agrees`);
+r = CI.parse(denton);
+assert.equal(r.total, 12616); assert.equal(r.package_total, 13280); assert.equal(r.retainer, 4205); assert.equal(r.final, 8411);
+assert.deepEqual(r.price_lines.map(l => l.amount), [12880, 400, -664]); assert.equal(r.booths, 10); assert.equal(r.days, 10); assert.equal(r.craft, true);
+assert.equal(r.start_date, '2026-08-21'); assert.equal(r.end_date, '2026-08-30'); assert.deepEqual(r.warnings, []);
+// same, but with labels it can't recognise: found by arithmetic instead
+r = CI.parse(denton.replace('Cost of Package:', 'Running figure:').replace('Final Contract Cost:', 'Grand figure:'));
+assert.equal(r.total, 12616); assert.equal(r.package_total, 13280); assert.deepEqual(r.price_lines.map(l => l.amount), [12880, 400, -664]); assert.deepEqual(r.warnings, []);
+console.log('subtotal/total ok');

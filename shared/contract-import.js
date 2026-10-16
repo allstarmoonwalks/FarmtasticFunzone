@@ -131,11 +131,28 @@
       const label = clean(mm[1]).replace(/:$/, ''), amt = (mm[2] || mm[3] ? -1 : 1) * parseFloat(mm[4].replace(/,/g, ''));
       if (/retainer/i.test(label)) { out.retainer = amt; out.retainer_label = label; }
       else if (/final\s+check|due\s+(?:up)?on\s+completion|at\s+completion|balance/i.test(label)) { out.final = amt; out.final_label = label; }
-      else if (/cost\s+of\s+package|package\s+(?:cost|price|total)|sub-?total/i.test(label)) { out.package_total = amt; out.package_label = label; }
-      else if (/total\s+cost|final\s+price|price\s+of\s+contract|contract\s+(?:price|total)/i.test(label)) { out.total = amt; out.total_label = label; }
+      else if (/(?:cost|price|total)\s+of\s+package|package\s+(?:cost|price|total)|sub-?total/i.test(label)) { out.package_total = amt; out.package_label = label; }
+      else if (/total\s+cost|final\s+(?:contract\s+)?(?:price|cost|total)|price\s+of\s+contract|contract\s+(?:price|total|cost)/i.test(label)) { out.total = amt; out.total_label = label; }
       else out.price_lines.push({ label, amount: amt });
     }
-    const sum = Math.round(out.price_lines.reduce((a, l) => a + l.amount, 0) * 100) / 100;
+    // Contracts word their bold subtotal / final-total lines differently ("Cost of Package", "Final Contract Cost", ...). If a printed
+    // subtotal or total slipped through as an ordinary charge, find it by arithmetic so nothing is counted twice.
+    const sumOf = a => Math.round(a.reduce((x, l) => x + l.amount, 0) * 100) / 100;
+    if (!out.package_total && out.price_lines.length > 2) {
+      let run = 0;
+      for (let i = 0; i < out.price_lines.length; i++) {
+        const l = out.price_lines[i];
+        if (i >= 2 && l.amount > 0 && Math.abs(run - l.amount) < 0.01) { out.package_total = l.amount; out.package_label = l.label; out.price_lines.splice(i, 1); break; }
+        if (l.amount > 0) run += l.amount;
+      }
+    }
+    if ((!out.total || Math.abs(sumOf(out.price_lines) - out.total) > 0.01) && out.price_lines.length > 1) {
+      for (let i = out.price_lines.length - 1; i >= 0; i--) {
+        const l = out.price_lines[i], others = out.price_lines.filter((_, j) => j !== i);
+        if (l.amount > 0 && Math.abs(sumOf(others) - l.amount) < 0.01) { out.total = l.amount; out.total_label = l.label; out.price_lines = others; break; }
+      }
+    }
+    const sum = sumOf(out.price_lines);
     if (!out.total && out.price_lines.length) out.total = sum;
     miss(!out.price_lines.length, 'Could not find the price lines.');
     miss(out.total && out.price_lines.length && Math.abs(sum - out.total) > 0.01, `The price lines add up to $${sum.toFixed(2)} but the contract total says $${out.total.toFixed(2)}.`);
