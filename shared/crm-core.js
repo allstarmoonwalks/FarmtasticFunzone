@@ -4,7 +4,7 @@ const sb = (CFG.SUPABASE_URL && window.supabase) ? window.supabase.createClient(
 
 // All user/lead-supplied text goes through esc() before touching innerHTML (leads come from the public form).
 const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
-const money = n => '$' + (+n || 0).toLocaleString('en-US', { minimumFractionDigits: 0, maximumFractionDigits: 2 });
+const money = n => ((+n || 0) < 0 ? '-' : '') + '$' + Math.abs(+n || 0).toLocaleString('en-US', { minimumFractionDigits: 0, maximumFractionDigits: 2 });
 const fmtDate = d => d ? new Date(String(d).slice(0, 10) + 'T12:00:00').toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }) : '';
 const telHref = p => 'tel:' + String(p || '').replace(/[^\d+]/g, '');
 const smsHref = p => 'sms:' + String(p || '').replace(/[^\d+]/g, '');

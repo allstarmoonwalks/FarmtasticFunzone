@@ -174,7 +174,7 @@ async function openEvent(id){
   const {data:e}=await sb.from('events').select('*').eq('id',id).single();
   const [staffAll,staffSel,orgs,contacts,cons,quotes,inv,acts,sel]=await Promise.all([q(sb.from('employees').select('id,name').eq('status','active').order('name')),q(sb.from('event_staff').select('employee_id').eq('event_id',id)),q(sb.from('organizations').select('id,name').order('name')),q(sb.from('contacts').select('id,name,organization_id').order('name')),q(sb.from('contracts').select('id,status,title,sent_at,signed_at,signed_name').eq('event_id',id).order('created_at',{ascending:false})),q(sb.from('quotes').select('*').eq('event_id',id).order('created_at',{ascending:false})),q(sb.from('invoices').select('*').eq('event_id',id)),q(sb.from('activities').select('*').eq('event_id',id).order('created_at',{ascending:false})),q(sb.from('event_attractions').select('attraction_id').eq('event_id',id))]);
   const picked=new Set(sel.map(s=>s.attraction_id)), crew=new Set(staffSel.map(s=>s.employee_id)), days=daysBetween(e.start_date,e.end_date)||1;
-  const d=$('dlg');d.innerHTML=`<h2>${esc(e.name)}</h2>
+  const d=$('dlg');d.innerHTML=`<h2>${esc(e.name)}</h2>${e.status==='cancelled'?`<div class="card" style="border-color:var(--barn)"><b class="err">Cancelled${e.cancelled_at?' '+fmtDate(e.cancelled_at):''}</b>${e.cancel_reason?' — '+esc(e.cancel_reason):''}${+e.credit_held?`<br>Credit held for the customer: <b>${money(e.credit_held)}</b>`:''}<br><span class="muted">Set Status back to confirmed/tentative and Save to reinstate it.</span></div>`:''}
    <div class="row"><div><label>Name</label><input id="e_name" value="${esc(e.name)}"></div><div><label>Status</label><select id="e_status">${['tentative','confirmed','completed','cancelled'].map(s=>`<option ${s===e.status?'selected':''}>${s}</option>`).join('')}</select></div>
    <div><label>Customer</label><select id="e_org" onchange="fillContacts()"><option value="">–</option>${orgs.map(o=>`<option value="${o.id}" ${o.id===e.organization_id?'selected':''}>${esc(o.name)}</option>`).join('')}</select></div>
    <div><label>Contact</label><select id="e_contact"></select></div>
@@ -187,18 +187,19 @@ async function openEvent(id){
    <label>Load-in / notes</label><textarea id="e_notes" rows="3">${esc(e.load_in_notes||e.notes)}</textarea>
    <label>Assigned team</label><div class="row">${staffAll.map(m=>`<label style="font-weight:400"><input type="checkbox" style="width:auto" class="stf" value="${m.id}" ${crew.has(m.id)?'checked':''}> ${esc(m.name)}</label>`).join('')||'<span class="muted">No team members yet.</span>'}</div>
    <label>Attractions</label><div class="row">${attractions.map(a=>`<label style="font-weight:400"><input type="checkbox" style="width:auto" class="att" value="${a.id}" ${picked.has(a.id)?'checked':''}> ${esc(a.name)}</label>`).join('')}</div>
-   <p><button class="p" onclick="saveEvent('${id}')">Save</button> <button class="s" onclick="$('dlg').close()">Close</button></p>
-   <h3>Quote</h3><p class="muted">Priced from the price list using the booths, craft station and dates above. Add travel or a discount, then create the quote — you can still edit every number on it afterwards.</p>
+   <p><button class="p" onclick="saveEvent('${id}')">Save</button> <button class="s" onclick="$('dlg').close()">Close</button>
+   ${e.status!=='cancelled'?`<button class="s" onclick="openCancelEvent('${id}')">Cancel event…</button>`:''}${ME.role==='admin'?`<button class="s" style="float:right;color:var(--barn)" onclick="deleteEvent('${id}')">Delete event…</button>`:''}</p>
+   <h3>Quote</h3><details ${quotes.length?'':'open'}><summary style="cursor:pointer;font-weight:600">${quotes.length?'＋ Create another quote from the price list':'Create a quote from the price list'}</summary><p class="muted">Priced from the price list using the booths, craft station and dates above. Add travel or a discount, then create the quote — you can still edit every number on it afterwards.</p>
    <div class="row"><div><label>Travel ($)</label><input id="qb_travel" type="number" step="any" value="0" oninput="qbPreview()"></div>
    <div><label>Discount</label><div style="display:flex;gap:6px"><input id="qb_disc" type="number" step="any" value="0" oninput="qbPreview()"><select id="qb_dtype" onchange="qbPreview()" style="width:72px"><option value="usd">$</option><option value="pct">%</option></select></div></div>
    <div><label>Discount description</label><input id="qb_label" placeholder="e.g. 5% bundle with Texan Petting Zoo"></div></div>
-   <div id="quoteBox" class="card" style="margin-top:8px"></div><button class="s" onclick="makeQuote('${id}')">Create quote</button>
+   <div id="quoteBox" class="card" style="margin-top:8px"></div><button class="s" onclick="makeQuote('${id}')">Create quote</button></details>
    ${quotes.map(x=>`<p class="card">${x.booths} booths × ${x.days} days — <b>${money(x.total)}</b> ${pill(x.status)} <button class="s" onclick="openQuote('${x.id}')">Open</button> <button class="s" onclick="mkInvoice('${id}',${x.total},'deposit')">Deposit invoice</button></p>`).join('')}
    <h3>Contracts</h3>${cons.map(c=>`<p class="card">${esc(c.title)} ${pill(c.status)} ${c.signed_at?`signed by ${esc(c.signed_name)} · ${fmtDate(c.signed_at)}`:c.sent_at?`sent ${fmtDate(c.sent_at)}`:''} <button class="s" onclick="openContract('${c.id}')">View</button></p>`).join('')||'<p class="muted">None yet.</p>'}<button class="s" onclick="openContractForm('${id}')">＋ Create contract</button>
    <h3>Invoices</h3>${inv.map(i=>`<p><a href="#" onclick="openInvoice('${i.id}');return false">${esc(i.number||'')}</a> ${esc(i.kind)} ${money(i.amount)} ${pill(i.status)} ${i.status==='unpaid'?`<button class="s" onclick="markPaid('${i.id}','${id}')">Mark paid</button>`:''}</p>`).join('')||'<p class="muted">None.</p>'}
    <h3>Notes</h3><textarea id="newnote" rows="2" placeholder="Add a note…"></textarea><button class="s" onclick="addNote('${id}')">Add</button>
    ${acts.map(a=>`<p class="muted">${fmtDate(a.created_at)} · ${esc(a.created_by)}: ${esc(a.body)}</p>`).join('')}`;
-  window._qbDays=days;window._evContacts=contacts;window._evContact=e.contact_id;fillContacts();
+  window._qbDays=(e.start_date?days:0)||(quotes[0]&&quotes[0].days)||1;window._evContacts=contacts;window._evContact=e.contact_id;fillContacts();
   d.showModal();qbPreview();
 }
 function evSchedFill(){
@@ -207,6 +208,51 @@ function evSchedFill(){
   $('e_sched').value=Schedule.toLines(sc);
 }
 function fillContacts(){const o=$('e_org').value,cur=window._evContact;$('e_contact').innerHTML='<option value="">–</option>'+window._evContacts.filter(c=>!o||c.organization_id===o).map(c=>`<option value="${c.id}" ${c.id===cur?'selected':''}>${esc(c.name)}</option>`).join('');window._evContact=''}
+async function openCancelEvent(id){
+  const [{data:e},pays,invs,cons]=await Promise.all([sb.from('events').select('*').eq('id',id).single(),q(sb.from('payments').select('*').eq('event_id',id)),q(sb.from('invoices').select('id,status').eq('event_id',id)),q(sb.from('contracts').select('id,status').eq('event_id',id).neq('status','void'))]);
+  const received=Math.round(pays.reduce((a,p)=>a+ +p.amount,0)*100)/100, unpaid=invs.filter(i=>i.status==='unpaid').length;
+  const radio=(v,l,chk)=>`<label style="display:flex;gap:8px;align-items:center;font-weight:400"><input type="radio" name="x_act" value="${v}" style="width:auto" ${chk?'checked':''} onchange="$('x_money').style.display=this.value==='keep'?'none':'block'"> ${l}</label>`;
+  $('dlg').innerHTML=`<h2>Cancel event — ${esc(e.name)}</h2><p>Money received so far: <b>${money(received)}</b>${received>0?'':' <span class="muted">(nothing recorded)</span>'}</p>
+   <label>Reason (optional)</label><input id="x_reason" placeholder="e.g. Weather, customer cancelled">
+   ${received>0?`<label>What happens to the money received?</label>${radio('keep','Keep it — no refund (e.g. non-refundable retainer)',true)}${radio('refund','Refund it',false)}${radio('credit','Hold it as credit toward a future event',false)}
+   <div id="x_money" style="display:none"><div class="row"><div><label>Amount ($)</label><input id="x_amt" type="number" step="any" value="${received}"></div>
+   <div><label>Refund method</label><select id="x_method">${['card','check','cash','ach','other'].map(m=>`<option>${m}</option>`).join('')}</select></div>
+   <div><label>Date</label><input id="x_date" type="date" value="${new Date().toISOString().slice(0,10)}"></div><div><label>Reference / note</label><input id="x_ref"></div></div>
+   <p class="muted">This CRM only <b>records</b> the refund — it doesn't send money. Refund through your card processor or by check, then record it here. A refund shows as a negative payment in Financials.</p></div>`:''}
+   ${unpaid||cons.length?`<label style="display:flex;gap:8px;align-items:center;font-weight:400;margin-top:8px"><input type="checkbox" id="x_void" checked style="width:auto"> Also void ${cons.length} open contract${cons.length==1?'':'s'} and ${unpaid} unpaid invoice${unpaid==1?'':'s'}</label>`:''}
+   <p id="x_err" class="err"></p><p><button class="p" id="x_go" onclick="confirmCancelEvent('${id}',${received})">Cancel event</button> <button class="s" onclick="openEvent('${id}')">Back</button></p>`;
+  $('dlg').showModal();
+}
+async function confirmCancelEvent(id,received){
+  const act=(document.querySelector('input[name=x_act]:checked')||{}).value||'keep', reason=$('x_reason').value.trim()||null, err=m=>{$('x_err').textContent=m};
+  const amt=act==='keep'?0:Math.round((+$('x_amt').value||0)*100)/100, method=$('x_method')?$('x_method').value:'other', pdate=$('x_date')?$('x_date').value:'', ref=$('x_ref')?$('x_ref').value.trim():'', voidIt=!!($('x_void')&&$('x_void').checked);
+  if(act!=='keep'&&(!(amt>0)||amt>received+0.005))return err('Enter an amount up to '+money(received)+'.');
+  if(act==='refund'&&!pdate)return err('Enter the refund date.');
+  if(!confirm('Cancel this event'+(act==='refund'?' and record a '+money(amt)+' refund':act==='credit'?' and hold '+money(amt)+' as credit':'')+'?'))return;
+  $('x_go').disabled=true;
+  try{
+    const {data:e}=await sb.from('events').select('credit_held,name').eq('id',id).single();
+    if(act==='refund'){const {error}=await sb.from('payments').insert({event_id:id,amount:-amt,method,paid_at:pdate,reference:ref||'Refund — event cancelled',note:'Refund'});if(error)throw error}
+    const upd={status:'cancelled',cancelled_at:new Date().toISOString(),cancel_reason:reason};
+    if(act==='credit')upd.credit_held=Math.round(((+e.credit_held||0)+amt)*100)/100;
+    const {error:ue}=await sb.from('events').update(upd).eq('id',id);if(ue)throw ue;
+    if(voidIt){await sb.from('invoices').update({status:'void'}).eq('event_id',id).eq('status','unpaid');await sb.from('contracts').update({status:'void'}).eq('event_id',id).in('status',['draft','sent','signed'])}
+    await sb.from('activities').insert({event_id:id,kind:'note',body:'Event cancelled'+(reason?': '+reason:'')+(act==='refund'?'. Refund recorded: '+money(amt)+' ('+method+').':act==='credit'?'. '+money(amt)+' held as credit.':'.'),created_by:ME.name});
+    $('dlg').close();go(tab);
+  }catch(x){$('x_go').disabled=false;err('Could not cancel: '+(x.message||x))}
+}
+async function deleteEvent(id){
+  const [{data:e},pays,invs,cons,qs]=await Promise.all([sb.from('events').select('name').eq('id',id).single(),q(sb.from('payments').select('amount').eq('event_id',id)),q(sb.from('invoices').select('id').eq('event_id',id)),q(sb.from('contracts').select('id,status,source_pdf_path').eq('event_id',id)),q(sb.from('quotes').select('id').eq('event_id',id))]);
+  const received=pays.reduce((a,p)=>a+ +p.amount,0);
+  if(pays.length)return alert('"'+e.name+'" has payments recorded ('+money(received)+' net), so it can\'t be deleted — that would erase your payment history.\n\nUse "Cancel event…" instead: it lets you refund, keep or hold the money and keeps the records.');
+  const signed=cons.filter(c=>c.status==='signed').length;
+  if(!confirm('Permanently delete "'+e.name+'"?\n\nThis also deletes its '+qs.length+' quote(s), '+cons.length+' contract(s)'+(signed?' (including '+signed+' SIGNED)':'')+' and '+invs.length+' invoice(s). This cannot be undone.\n\nTo keep a record, use "Cancel event…" instead.'))return;
+  if((prompt('Type DELETE to confirm.')||'').trim()!=='DELETE')return;
+  const paths=cons.map(c=>c.source_pdf_path).filter(Boolean);if(paths.length)await sb.storage.from('contract-pdfs').remove(paths);
+  if(invs.length)await sb.from('invoices').delete().eq('event_id',id);
+  const {error}=await sb.from('events').delete().eq('id',id);if(error)return alert('Could not delete: '+error.message);
+  $('dlg').close();go(tab);
+}
 async function saveEvent(id){
   const v=k=>$('e_'+k).value||null;
   await q(sb.from('events').update({name:v('name'),status:v('status'),start_date:v('start'),end_date:v('end'),venue:v('venue'),city:v('city'),organization_id:v('org'),contact_id:v('contact'),booths:v('booths')?+v('booths'):null,craft_station:v('craft')==='true',load_in_notes:v('notes'),schedule:Schedule.fromLines($('e_sched').value),times_text:v('times')}).eq('id',id));
@@ -363,7 +409,7 @@ async function openCustomer(id){
    <h3>Events</h3>${events.map(e=>`<p><a href="#" onclick="openEvent('${e.id}');return false">${esc(e.name)}</a> ${fmtDate(e.start_date)} – ${fmtDate(e.end_date)} ${pill(e.status)}</p>`).join('')||'<p class="muted">None.</p>'}
    <h3>Contracts</h3>${cons.map(c=>`<p>${esc(c.title)} · ${esc(nm[c.event_id]||'')} ${pill(c.status)} ${c.signed_at?`signed by ${esc(c.signed_name)} ${fmtDate(c.signed_at)}`:''} <button class="s" onclick="openContract('${c.id}')">${c.status==='signed'?'View signed copy':'View'}</button></p>`).join('')||'<p class="muted">None.</p>'}
    <h3>Quotes</h3>${quotes.map(x=>`<p>${esc(nm[x.event_id]||'')} ${x.booths} booths × ${x.days} days <b>${money(x.total)}</b> ${pill(x.status)} <button class="s" onclick="openQuote('${x.id}')">Open</button></p>`).join('')||'<p class="muted">None.</p>'}
-   <h3>Invoices &amp; payments</h3><p class="muted">Paid ${money(paid)} · Unpaid ${money(owed)}</p>
+   <h3>Invoices &amp; payments</h3><p class="muted">Paid ${money(paid)} · Unpaid ${money(owed)}${events.reduce((a,e)=>a+ +(e.credit_held||0),0)>0?` · <b>Credit on account ${money(events.reduce((a,e)=>a+ +(e.credit_held||0),0))}</b>`:''}</p>
    ${inv.map(i=>`<p>${esc(i.number)} ${esc(i.kind)} <b>${money(i.amount)}</b> ${pill(i.status)} <button class="s" onclick="openInvoice('${i.id}')">Open</button></p>`).join('')}
    ${pays.map(p2=>`<p class="muted">${fmtDate(p2.paid_at)} · ${money(p2.amount)} · ${esc(p2.method)} ${esc(p2.reference)}</p>`).join('')}`;
   $('dlg').showModal();
@@ -419,7 +465,7 @@ async function openImportReview(){
    <h3>Pricing</h3><label>Price lines (description | amount — discounts negative)</label><textarea id="ci_price" rows="3">${esc(r.price_lines.map(l=>l.label+' | '+l.amount).join('\n'))}</textarea>
    <div class="row"><div><label>Retainer ($) — blank = 1/3</label><input id="ci_ret" type="number" step="any" value="${r.retainer&&r.total&&Math.abs(r.retainer-r.total/3)>0.01?r.retainer:''}"></div></div>
    <h3>Signature</h3><label style="display:flex;gap:8px;align-items:center;font-weight:400"><input type="checkbox" id="ci_signed" style="width:auto" ${r.signed?'checked':''}> This contract has been signed by the customer</label>
-   <p class="muted" style="margin:4px 0">${r.signed?'A signer name and date were found on the signature lines.':'No signature was detected (blank signature lines). Tick this if the PDF is a signed copy.'} If ticked, the contract is stored as signed and the event is scheduled and confirmed on the calendar.</p>
+   <p class="muted" style="margin:4px 0">${r.signed?'A signer name and date were found on the signature lines.':'No signature was detected (blank signature lines). Tick this if the PDF is a signed copy.'} If ticked, the contract is stored as signed and the event is confirmed. Either way the contracted dates and times go on the event (an unsigned contract shows as a tentative event on the calendar).</p>
    <div class="row">${f('signed_name','Signed by (printed name)')}${f('signed_title','Title (optional)')}<div><label>Date signed</label><input id="ci_sdate" type="date" value="${r.signed_date||''}"></div></div>
    <p id="ci_err" class="err"></p><p><button class="p" id="ci_go" onclick="importContract()">Import contract</button> <button class="s" onclick="$('dlg').close()">Cancel</button></p>`;
 }
@@ -453,7 +499,7 @@ async function importContract(){
     const craft=$('ci_craft').value==='true', year=r.year||start.slice(0,4);
     const names=(r.booth_names||[]).filter(Boolean);
     const {data:ev,error:eerr}=await sb.from('events').insert({name:`${name} ${year}`,organization_id:orgId,contact_id:contactId,city:city||null,booths:booths||null,craft_station:craft,
-      status:signed?'confirmed':'tentative',start_date:signed?start:null,end_date:signed?end:null,schedule:signed?schedule:[],times_text:timesText||null,notes:'Imported from contract PDF.'+(names.length?' Items: '+names.join(', ')+'.':'')+(r.dates_note?' '+r.dates_note+'.':'')}).select().single();
+      status:signed?'confirmed':'tentative',start_date:start,end_date:end,schedule,times_text:timesText||null,notes:'Imported from contract PDF.'+(names.length?' Items: '+names.join(', ')+'.':'')+(r.dates_note?' '+r.dates_note+'.':'')}).select().single();
     if(eerr)throw eerr;
     // 3. items -> matched attractions
     const tok=x=>normName(x).split(' ').filter(w=>w.length>2&&!['and','the','for','with'].includes(w)).map(w=>w.replace(/s$/,''));
@@ -569,7 +615,7 @@ async function openContract(id){
   $('dlg').innerHTML=`<h2>${esc(c.title)} ${pill(c.status)}</h2><p class="muted">${esc(c.terms.contractee_name)}${c.sent_at?` · sent ${fmtDate(c.sent_at)}`:''}${c.signed_at?` · signed ${fmtDate(c.signed_at)}`:''}</p>
    <p>${c.status==='draft'||live?`<button class="p" onclick="emailContract('${id}')">✉ ${live?'Resend email':'Email to customer'}</button> `:''}${c.status==='draft'?`<button class="s" onclick="markSent('${id}')">Mark as sent (no email)</button> `:''}${c.status==='draft'||live?`<button class="s" onclick="openContractForm('${c.event_id}','${id}')">Edit</button> `:''}${c.status!=='void'?`<button class="s" onclick="copyLink()">Copy signing link</button> ${contact&&contact.email?`<a class="s" style="text-decoration:none;color:inherit;display:inline-block" href="mailto:${esc(contact.email)}?subject=${sub}&body=${body}">Open in my mail app</a> `:''}`:''}
    ${c.status==='signed'||c.status==='sent'?`<button class="s" onclick="printContract()">Print / PDF</button> `:''}${c.source_pdf_path?`<button class="s" onclick="viewPdf('${c.source_pdf_path}')">📄 Original PDF</button> `:''}<button class="s" onclick="openEvent('${c.event_id}')">Open event</button> <button class="s" onclick="$('dlg').close()">Close</button>
-   ${c.status==='draft'?`<button class="s" style="float:right;color:var(--barn)" onclick="delContract('${id}')">Delete</button>`:c.status!=='void'?`<button class="s" style="float:right;color:var(--barn)" onclick="voidContract('${id}')">Void</button>`:''}</p>
+   ${c.status!=='void'&&c.status!=='draft'?`<button class="s" style="float:right;color:var(--barn);margin-left:6px" onclick="voidContract('${id}')">Void</button>`:''}${c.status==='draft'||ME.role==='admin'?`<button class="s" style="float:right;color:var(--barn)" onclick="delContract('${id}')">Delete</button>`:''}</p>
    ${c.status==='sent'?'<p class="muted">Waiting for the customer to sign. They can sign from the emailed link or by logging in at /portal/.</p>':''}
    <div id="cdoc" style="background:#fff;border:1px solid var(--line);border-radius:10px;padding:18px">${c.body_html}</div>${c.status==='signed'?ContractDoc.signedBlock(c):''}`;
   const sg=$('cdoc').querySelector('[data-sig]');if(sg&&c.signed_name)sg.innerHTML=`<i style="font:italic 20px Georgia,serif">${esc(c.signed_name)}</i>`;
@@ -578,7 +624,16 @@ async function openContract(id){
 function copyLink(){navigator.clipboard.writeText(signLink(CUR)).then(()=>alert('Signing link copied. Paste it into an email or text.'),()=>prompt('Copy this link:',signLink(CUR)))}
 async function markSent(id){await q(sb.from('contracts').update({status:'sent',sent_at:new Date().toISOString()}).eq('id',id));openContract(id);if(tab==='Contracts')Contracts()}
 async function voidContract(id){if(!confirm('Void this contract? The customer will no longer be able to sign it.'))return;const {error}=await sb.from('contracts').update({status:'void'}).eq('id',id);if(error)return alert(error.message);openContract(id);if(tab==='Contracts')Contracts()}
-async function delContract(id){if(!confirm('Delete this draft?'))return;await q(sb.from('contracts').delete().eq('id',id));$('dlg').close();go(tab)}
+async function delContract(id){
+  const {data:c}=await sb.from('contracts').select('status,title,signed_name,source_pdf_path').eq('id',id).single();
+  if(c.status==='signed'){
+    if(!confirm('This contract is SIGNED'+(c.signed_name?' by '+c.signed_name:'')+'. Deleting it permanently removes the signed record'+(c.source_pdf_path?' and its stored PDF':'')+'. This cannot be undone.\n\nIf the deal fell through, Void is usually better (it keeps the record).\n\nDelete it anyway?'))return;
+    if((prompt('Type DELETE to confirm.')||'').trim()!=='DELETE')return;
+  }else if(!confirm('Delete this '+c.status+' contract?'))return;
+  if(c.source_pdf_path)await sb.storage.from('contract-pdfs').remove([c.source_pdf_path]);
+  const {error}=await sb.from('contracts').delete().eq('id',id);if(error)return alert('Could not delete: '+error.message);
+  $('dlg').close();go(tab);
+}
 function printContract(){
   const w=window.open('','_blank');if(!w)return alert('Allow pop-ups to print.');
   const sig=CUR.signed_name?`<script>document.querySelector('[data-sig]').innerHTML='<i style="font:italic 20px Georgia,serif">'+${JSON.stringify(esc(CUR.signed_name))}+'</i>'<\/script>`:'';
@@ -619,7 +674,7 @@ function finYearData(y){
   const sum=a=>a.reduce((x,y2)=>x+y2,0);
   return {rev,cnt,rec,dep,bal,inMonth,revT:sum(rev),cntT:sum(cnt),recT:sum(rec),depT:sum(dep),balT:sum(bal),inT:sum(inMonth)};
 }
-const fm=n=>'$'+Math.round(n).toLocaleString('en-US');
+const fm=n=>(n<0?'−':'')+'$'+Math.abs(Math.round(n)).toLocaleString('en-US');
 function finDrawChart(cv,labels,a,b){
   const W=cv.parentElement.clientWidth||600,H=240;cv.width=W;cv.height=H;const g=cv.getContext('2d'),pd={t:14,r:10,b:30,l:48},cw=W-pd.l-pd.r,ch=H-pd.t-pd.b,max=Math.max(...a,...b,1);g.clearRect(0,0,W,H);
   g.strokeStyle='#e8dcc0';g.fillStyle='#7a6a45';g.font='10px system-ui';g.textAlign='right';

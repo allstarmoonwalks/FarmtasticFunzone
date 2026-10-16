@@ -16,3 +16,17 @@ alter table events add column if not exists times_text text;
 --   sched := case when jsonb_typeof(c.terms->'schedule') = 'array' and jsonb_array_length(c.terms->'schedule') > 0 then c.terms->'schedule' else null end;
 --   update events set status='confirmed', start_date=coalesce(sd,start_date), end_date=coalesce(ed,end_date),
 --     schedule=coalesce(sched,schedule), times_text=coalesce(nullif(c.terms->>'times_text',''),times_text) where id=c.event_id;
+
+-- Cancel / delete (Oct 16, 2026): cancel reason + credit on events; only admins may delete signed contracts (and their stored PDF).
+alter table events add column if not exists cancel_reason text;
+alter table events add column if not exists cancelled_at timestamptz;
+alter table events add column if not exists credit_held numeric(10,2) not null default 0;
+create or replace function public.is_role_admin() returns boolean language sql stable security definer set search_path = public as $$
+  select exists (select 1 from employees where lower(email) = lower(auth.jwt() ->> 'email') and status = 'active' and role = 'admin');
+$$;
+revoke execute on function public.is_role_admin() from public, anon;
+grant execute on function public.is_role_admin() to authenticated, service_role;
+-- contracts_lock(): the DELETE branch now reads
+--   if old.status = 'signed' and not (select public.is_role_admin()) and current_user not in ('postgres','service_role') then raise exception ...
+create policy "contract pdfs admin delete" on storage.objects for delete to authenticated
+  using (bucket_id = 'contract-pdfs' and (select public.is_role_admin()));
