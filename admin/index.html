@@ -108,7 +108,7 @@ async function openLead(id){
    <div class="row">${f('name','Name')}${f('organization','Organization')}${f('email','Email','email')}${f('phone','Phone')}${f('event_dates','Event dates')}${f('booths_interest','Booths interested in')}
    <div><label>Status</label><select id="l_status">${['new','contacted','quoted','won','lost'].map(x=>`<option ${x===l.status?'selected':''}>${x}</option>`).join('')}</select></div></div>
    <label>Message</label><textarea id="l_message" rows="4">${esc(l.message)}</textarea>
-   <p><button class="p" onclick="saveLead('${id}')">Save</button> ${l.event_id?`<button class="s" onclick="openEvent('${l.event_id}')">Open event</button>`:`<button class="s" onclick="leadToEvent('${id}')">→ Make event</button>`} <button class="s" onclick="$('dlg').close()">Close</button></p>
+   <p><button class="p" onclick="saveLead('${id}')">Save</button> ${l.event_id?`<button class="s" onclick="openEvent('${l.event_id}')">Open event</button>`:`<button class="s" onclick="leadToEvent('${id}')">→ Make event</button>`} <button class="s" onclick="$('dlg').close()">Close</button><button class="s" style="float:right;color:var(--barn)" onclick="delLead('${id}')">Delete lead</button></p>
    <h3>Notes</h3><textarea id="newnote" rows="2" placeholder="Add a note…"></textarea><button class="s" onclick="addLeadNote('${id}')">Add</button>
    ${acts.map(a=>`<p class="muted">${fmtDate(a.created_at)} · ${esc(a.created_by)}: ${esc(a.body)}</p>`).join('')}`;
   $('dlg').showModal();
@@ -243,16 +243,67 @@ async function confirmCancelEvent(id,received){
 }
 async function deleteEvent(id){
   const [{data:e},pays,invs,cons,qs]=await Promise.all([sb.from('events').select('name').eq('id',id).single(),q(sb.from('payments').select('amount').eq('event_id',id)),q(sb.from('invoices').select('id').eq('event_id',id)),q(sb.from('contracts').select('id,status,source_pdf_path').eq('event_id',id)),q(sb.from('quotes').select('id').eq('event_id',id))]);
-  const received=pays.reduce((a,p)=>a+ +p.amount,0);
-  if(pays.length)return alert('"'+e.name+'" has payments recorded ('+money(received)+' net), so it can\'t be deleted — that would erase your payment history.\n\nUse "Cancel event…" instead: it lets you refund, keep or hold the money and keeps the records.');
-  const signed=cons.filter(c=>c.status==='signed').length;
-  if(!confirm('Permanently delete "'+e.name+'"?\n\nThis also deletes its '+qs.length+' quote(s), '+cons.length+' contract(s)'+(signed?' (including '+signed+' SIGNED)':'')+' and '+invs.length+' invoice(s). This cannot be undone.\n\nTo keep a record, use "Cancel event…" instead.'))return;
+  const received=Math.round(pays.reduce((a,p)=>a+ +p.amount,0)*100)/100, signed=cons.filter(c=>c.status==='signed').length;
+  if(!confirm('Permanently delete "'+e.name+'"?\n\nThis also deletes its '+qs.length+' quote(s), '+cons.length+' contract(s)'+(signed?' (including '+signed+' SIGNED)':'')+', '+invs.length+' invoice(s)'+(pays.length?' and '+pays.length+' payment record(s) ('+money(received)+' net) — this removes them from your payment history and Financials':'')+'. This cannot be undone.\n\nTo keep a record instead, use "Cancel event…".'))return;
   if((prompt('Type DELETE to confirm.')||'').trim()!=='DELETE')return;
+  try{await purgeEvents([id]);$('dlg').close();go(tab)}catch(x){alert('Could not delete: '+x.message)}
+}
+// Removes events and everything that hangs off them, in an order the database accepts. (Throws on the first failure.)
+async function purgeEvents(eids){
+  if(!eids.length)return;
+  const step=async(label,p)=>{const {error}=await p;if(error)throw new Error(label+': '+error.message)};
+  const cons=await q(sb.from('contracts').select('id,source_pdf_path').in('event_id',eids));
   const paths=cons.map(c=>c.source_pdf_path).filter(Boolean);if(paths.length)await sb.storage.from('contract-pdfs').remove(paths);
-  if(invs.length)await sb.from('invoices').delete().eq('event_id',id);
-  const {error}=await sb.from('events').delete().eq('id',id);if(error)return alert('Could not delete: '+error.message);
+  await step('payments',sb.from('payments').delete().in('event_id',eids));
+  await step('invoices',sb.from('invoices').delete().in('event_id',eids));
+  await step('contracts',sb.from('contracts').delete().in('event_id',eids));
+  await step('quotes',sb.from('quotes').delete().in('event_id',eids));
+  await step('leads',sb.from('leads').update({event_id:null}).in('event_id',eids));
+  await step('events',sb.from('events').delete().in('id',eids));
+}
+async function deleteCustomer(id){
+  const {data:o}=await sb.from('organizations').select('name').eq('id',id).single();
+  const contacts=await q(sb.from('contacts').select('id').eq('organization_id',id)), cids=contacts.map(c=>c.id), NONE=['00000000-0000-0000-0000-000000000000'];
+  const evs=await q(sb.from('events').select('id,name').eq('organization_id',id));
+  if(cids.length)(await q(sb.from('events').select('id,name').in('contact_id',cids))).forEach(e=>{if(!evs.some(x=>x.id===e.id))evs.push(e)});
+  const eids=evs.map(e=>e.id), ein=eids.length?eids:NONE;
+  const [c1,c2,qs,invs,pays,l1,l2]=await Promise.all([q(sb.from('contracts').select('id,status,source_pdf_path').in('event_id',ein)),q(sb.from('contracts').select('id,status,source_pdf_path').eq('organization_id',id)),q(sb.from('quotes').select('id').in('event_id',ein)),q(sb.from('invoices').select('id').in('event_id',ein)),q(sb.from('payments').select('amount').in('event_id',ein)),q(sb.from('leads').select('id').in('event_id',ein)),q(sb.from('leads').select('id').in('contact_id',cids.length?cids:NONE))]);
+  const cons=[...c1,...c2.filter(c=>!c1.some(x=>x.id===c.id))], leads=[...l1,...l2.filter(l=>!l1.some(x=>x.id===l.id))];
+  const signed=cons.filter(c=>c.status==='signed').length, received=Math.round(pays.reduce((a,p)=>a+ +p.amount,0)*100)/100;
+  if(!confirm('Permanently delete the customer "'+o.name+'" and EVERYTHING that belongs to them?\n\n• '+evs.length+' event(s)\n• '+cons.length+' contract(s)'+(signed?' ('+signed+' SIGNED)':'')+'\n• '+qs.length+' quote(s)\n• '+invs.length+' invoice(s)\n• '+pays.length+' payment record(s) ('+money(received)+' net)\n• '+contacts.length+' contact(s)\n• '+leads.length+' lead(s)\n\nThis cannot be undone. Payments are removed from your payment history and Financials.'))return;
+  if((prompt('To confirm, type the customer name exactly:\n'+o.name)||'').trim().toLowerCase()!==o.name.trim().toLowerCase())return alert('That didn\'t match, so nothing was deleted.');
+  try{
+    await purgeEvents(eids);
+    const paths=c2.map(c=>c.source_pdf_path).filter(Boolean);if(paths.length)await sb.storage.from('contract-pdfs').remove(paths);
+    const step=async(label,p)=>{const {error}=await p;if(error)throw new Error(label+': '+error.message)};
+    await step('other contracts',sb.from('contracts').delete().eq('organization_id',id));
+    if(leads.length)await step('leads',sb.from('leads').delete().in('id',leads.map(l=>l.id)));
+    if(cids.length)await step('contacts',sb.from('contacts').delete().in('id',cids));
+    await step('customer',sb.from('organizations').delete().eq('id',id));
+    $('dlg').close();go('Customers');
+  }catch(x){alert('Deleting stopped part-way: '+x.message+'\n\nSome of this customer\'s records may already be gone. Open the customer again to see what remains.')}
+}
+async function delContact(cid,oid){
+  if(!confirm('Delete this contact? (Their customer, events and contracts stay.)'))return;
+  await sb.from('leads').update({contact_id:null}).eq('contact_id',cid);
+  const {error}=await sb.from('contacts').delete().eq('id',cid);if(error)return alert('Could not delete: '+error.message);
+  openCustomer(oid);
+}
+async function delLead(id){
+  if(!confirm('Delete this lead and its notes? (Any customer or event made from it stays.)'))return;
+  const {error}=await sb.from('leads').delete().eq('id',id);if(error)return alert('Could not delete: '+error.message);
+  $('dlg').close();go(tab==='Dashboard'?'Dashboard':tab);
+}
+async function delInvoice(id){
+  const [{data:i},pays]=await Promise.all([sb.from('invoices').select('number,amount').eq('id',id).single(),q(sb.from('payments').select('id,amount').eq('invoice_id',id))]);
+  if(!confirm('Delete invoice '+i.number+' ('+money(i.amount)+')?'))return;
+  let alsoPays=false;
+  if(pays.length)alsoPays=confirm(pays.length+' payment(s) ('+money(pays.reduce((a,p)=>a+ +p.amount,0))+') were recorded against this invoice.\n\nOK = delete those payment records too (removes the money from your payment history).\nCancel = keep them as payments on the event.');
+  if(alsoPays)await sb.from('payments').delete().eq('invoice_id',id);
+  const {error}=await sb.from('invoices').delete().eq('id',id);if(error)return alert('Could not delete: '+error.message);
   $('dlg').close();go(tab);
 }
+async function delTask(id){await q(sb.from('tasks').delete().eq('id',id));Tasks()}
 async function saveEvent(id){
   const v=k=>$('e_'+k).value||null;
   {const checked=[...document.querySelectorAll('.att:checked')].map(c=>c.value), st=$('e_start').value, en=$('e_end').value||st;
@@ -346,7 +397,7 @@ async function openInvoice(id){
    <div><label>Amount ($)</label><input id="i_amount" type="number" step="any" value="${i.amount}"></div>
    <div><label>Due date</label><input id="i_due" type="date" value="${i.due_date||''}"></div>
    <div><label>Status</label><select id="i_status">${['unpaid','paid','void'].map(k=>`<option ${k===i.status?'selected':''}>${k}</option>`).join('')}</select></div></div>
-   <p><button class="p" onclick="saveInvoice('${id}')">Save</button> ${i.event_id?`<button class="s" onclick="openEvent('${i.event_id}')">Open event</button>`:''} <button class="s" onclick="$('dlg').close()">Close</button></p>
+   <p><button class="p" onclick="saveInvoice('${id}')">Save</button> ${i.event_id?`<button class="s" onclick="openEvent('${i.event_id}')">Open event</button>`:''} <button class="s" onclick="$('dlg').close()">Close</button>${ME.role==='admin'?`<button class="s" style="float:right;color:var(--barn)" onclick="delInvoice('${id}')">Delete invoice</button>`:''}</p>
    <h3>Payments <span class="muted" style="font-size:13px">(${money(paid)} of ${money(i.amount)} received)</span></h3>
    ${pays.map(p2=>`<p>${fmtDate(p2.paid_at)} · <b>${money(p2.amount)}</b> · ${esc(p2.method)} ${esc(p2.reference)} <button class="s" onclick="delPayment('${p2.id}','${id}')">✕</button></p>`).join('')||'<p class="muted">No payments recorded.</p>'}
    <div class="row"><div><label>Amount</label><input id="p_amt" type="number" step="any" value="${Math.max(0,Math.round((i.amount-paid)*100)/100)}"></div>
@@ -406,8 +457,8 @@ async function openCustomer(id){
   const nm=Object.fromEntries(events.map(e=>[e.id,e.name]));
   const owed=inv.filter(i=>i.status==='unpaid').reduce((a,i)=>a+ +i.amount,0), paid=pays.reduce((a,p)=>a+ +p.amount,0);
   $('dlg').innerHTML=`<h2>${esc(o.name)}</h2>${orgForm(o)}
-   <p><button class="p" onclick="saveCustomer('${id}')">Save</button> <button class="s" onclick="newEvent('${id}','${contacts[0]?.id||''}')">＋ New event</button> <button class="s" onclick="$('dlg').close()">Close</button></p>
-   <h3>Contacts</h3>${contacts.map(c=>`<div class="row" style="margin-bottom:6px"><input id="ct_n_${c.id}" value="${esc(c.name)}" placeholder="Name"><input id="ct_e_${c.id}" value="${esc(c.email)}" placeholder="Email (portal login)"><input id="ct_p_${c.id}" value="${esc(c.phone)}" placeholder="Phone"><div><button class="s" onclick="saveContact('${c.id}','${id}')">Save</button></div></div>`).join('')}
+   <p><button class="p" onclick="saveCustomer('${id}')">Save</button> <button class="s" onclick="newEvent('${id}','${contacts[0]?.id||''}')">＋ New event</button> <button class="s" onclick="$('dlg').close()">Close</button>${ME.role==='admin'?`<button class="s" style="float:right;color:var(--barn)" onclick="deleteCustomer('${id}')">Delete customer…</button>`:''}</p>
+   <h3>Contacts</h3>${contacts.map(c=>`<div class="row" style="margin-bottom:6px"><input id="ct_n_${c.id}" value="${esc(c.name)}" placeholder="Name"><input id="ct_e_${c.id}" value="${esc(c.email)}" placeholder="Email (portal login)"><input id="ct_p_${c.id}" value="${esc(c.phone)}" placeholder="Phone"><div><button class="s" onclick="saveContact('${c.id}','${id}')">Save</button> <button class="s" style="color:var(--barn)" title="Delete contact" onclick="delContact('${c.id}','${id}')">✕</button></div></div>`).join('')}
    <div class="row"><input id="ct_n_new" placeholder="New contact name"><input id="ct_e_new" placeholder="Email"><input id="ct_p_new" placeholder="Phone"><div><button class="s" onclick="saveContact('new','${id}')">＋ Add contact</button></div></div>
    <h3>Events</h3>${events.map(e=>`<p><a href="#" onclick="openEvent('${e.id}');return false">${esc(e.name)}</a> ${fmtDate(e.start_date)} – ${fmtDate(e.end_date)} ${pill(e.status)}</p>`).join('')||'<p class="muted">None.</p>'}
    <h3>Contracts</h3>${cons.map(c=>`<p>${esc(c.title)} · ${esc(nm[c.event_id]||'')} ${pill(c.status)} ${c.signed_at?`signed by ${esc(c.signed_name)} ${fmtDate(c.signed_at)}`:''} <button class="s" onclick="openContract('${c.id}')">${c.status==='signed'?'View signed copy':'View'}</button></p>`).join('')||'<p class="muted">None.</p>'}
@@ -867,7 +918,7 @@ async function memberTempPw(id){
 async function Tasks(){
   const t=await q(sb.from('tasks').select('*').order('done').order('due_date'));
   $('view').innerHTML=`<h2>Tasks</h2><p><input id="tt" placeholder="New task…" style="max-width:340px"> <input id="td" type="date" style="max-width:160px"> <button class="p" onclick="addTask()">Add</button></p>
-   ${t.map(x=>`<p><label style="font-weight:400"><input type="checkbox" style="width:auto" ${x.done?'checked':''} onchange="tick('${x.id}',this.checked)"> ${esc(x.title)} <span class="muted">${fmtDate(x.due_date)}</span></label></p>`).join('')}`;
+   ${t.map(x=>`<p><label style="font-weight:400"><input type="checkbox" style="width:auto" ${x.done?'checked':''} onchange="tick('${x.id}',this.checked)"> ${esc(x.title)} <span class="muted">${fmtDate(x.due_date)}</span></label> <button class="s" style="color:var(--barn);padding:0 6px" title="Delete task" onclick="delTask('${x.id}')">✕</button></p>`).join('')}`;
 }
 async function addTask(){const title=$('tt').value.trim();if(!title)return;await q(sb.from('tasks').insert({title,due_date:$('td').value||null}));Tasks()}
 async function tick(id,done){await q(sb.from('tasks').update({done}).eq('id',id))}

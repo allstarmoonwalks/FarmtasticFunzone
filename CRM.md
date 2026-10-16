@@ -68,7 +68,9 @@ greys out items that are fully reserved for its dates; cancelling an event relea
 - **Cancel event…** (event dialog, any staff): sets the event to *cancelled* (off the calendar, out of revenue and receivables), with a reason, and asks what happens to money
   already received: **keep it** (e.g. non-refundable retainer), **refund** (records a negative payment — the CRM records it, it doesn't send money), or **hold as credit**
   toward a future event (`events.credit_held`, shown on the customer record). Optionally voids open contracts and unpaid invoices. Reinstate by setting Status back and saving.
-- **Delete event…** (admins): permanently removes the event with its quotes, contracts and invoices (and stored PDFs). **Blocked when payments are recorded** — cancel instead, so payment history is kept.
+- **Delete event…** (admins): permanently removes the event with its quotes, contracts, invoices, **payment records** and stored PDFs — a typed DELETE confirmation warns about any payments (they leave your history and Financials; use Cancel to keep records).
+- **Delete customer…** (admins, in the customer record): removes the customer and *everything that belongs to them* — events (also ones linked only through a contact), contracts (incl. signed), quotes, invoices, payments, contacts, converted leads and stored PDFs. The confirmation lists the counts and you must type the customer's name.
+- **Delete lead** (lead detail), **Delete invoice** (admins; you choose whether its payment records go too), **✕ on a contact** and **✕ on a task**. Quotes, payments, inventory items and contracts already had delete buttons.
 - **Delete contract** (admins any status, others drafts only): a *signed* contract needs the admin to type DELETE (database trigger allows signed deletes only for admins); the stored PDF is removed too. Void keeps the record.
 - Imported contracts now put the contracted dates and times on the event even when unsigned (shown as a *tentative* event); signing confirms it.
 
