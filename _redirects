@@ -9,3 +9,4 @@
 /supabase/*       /404.html  404!
 /shared/pricing.test.js /404.html 404!
 /shared/contract.test.js /404.html 404!
+/shared/contract-import.test.js /404.html 404!

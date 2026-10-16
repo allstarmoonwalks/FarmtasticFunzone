@@ -36,6 +36,22 @@ lead marked won. A signed contract can't be edited or deleted (database trigger)
   `BCC_EMAIL`, `SITE_URL`. Until the key is set the button explains that email isn't configured.
 - Add `https://www.farmtasticfunzone.com/portal/` (or `/**`) to Supabase Auth → Redirect URLs for portal sign-in links.
 
+## Import a contract PDF (Contracts tab)
+**⬆ Import contract PDF** reads an agreement PDF in the browser (pdf.js, text PDFs only — not scans/photos) with the parser in
+`shared/contract-import.js` (`node shared/contract-import.test.js`), shows a review screen, then creates: the **customer** (matched to an
+existing one by name, else new, with address/phone), an optional **contact**, the **event** (booths, craft station, matched attractions,
+other booth names in the notes), a **quote** with the contract's pricing (per-day, craft, discount, total), and the **digital contract**
+(same template as new contracts) with the original PDF stored privately (`contract-pdfs` bucket, staff-only) and a "📄 Original PDF" button.
+If the PDF is a signed copy (signer name/date on the Contractee lines, or a "Signed electronically by …" line) — or you tick "signed" — the
+contract is stored as **signed**, the quote **accepted**, and the event **confirmed with its dates on the calendar**. Unsigned imports create a
+*tentative* event with no dates and a *sent* contract. Migration: `supabase/migrations/20261016_contract_pdf_import.sql`.
+
+## Financials (admins only)
+Revenue by month and year, modeled on the AllStar reports (Revenue by Month, Annual Revenue, Monthly Payments, Receivables): **Overview**
+(year KPIs, revenue-vs-cash chart, month table + CSV), **Payments received**, **Receivables**, **By year** (with growth). Revenue = signed contract
+total (else accepted quote, else latest quote) of confirmed/completed events, spread over the days each event runs; cash = payments by date;
+tentative events are shown as pipeline only. The Dashboard also shows the current year's revenue.
+
 ## Team (admins only)
 Admin → **Team** tab: view everyone with a CRM/crew-app login, add people, edit name/phone/role/status, email a
 "set your password" link, or set a temporary password. Creating logins needs the service-role key, so it runs in the

@@ -44,6 +44,7 @@ dialog{border:0;border-radius:12px;max-width:820px;width:94%;padding:20px}dialog
 <script src="../shared/supabase-config.js"></script>
 <script src="../shared/pricing.js"></script>
 <script src="../shared/contract.js"></script>
+<script src="../shared/contract-import.js"></script>
 <script src="../shared/crm-core.js"></script>
 <script>
 let TABS=['Dashboard','Leads','Customers','Events','Quotes','Contracts','Invoices','Tasks'];
@@ -61,7 +62,7 @@ async function boot(){
       <label>Email</label><input id="em" type="email" required><label>Password</label><input id="pw" type="password" required>
       <p id="lerr" class="err">${esc(urlAuthError)}</p><button class="p">Sign in</button> <button type="button" class="s" onclick="doReset()">Forgot / set password</button></form>`;return;}
   if(r.error==='not-staff'){$('gate').innerHTML=`<div class="login card"><h2>No staff access</h2><p>${esc(r.user.email)} isn't an active employee. Ask an admin to add you.</p><button class="s" onclick="signOut()">Sign out</button></div>`;return;}
-  ME=r.employee;if(ME.role==='admin'&&!TABS.includes('Team'))TABS.push('Team');$('gate').innerHTML='';$('app').hidden=false;$('who').textContent=ME.name+' ('+ME.role+')';
+  ME=r.employee;if(ME.role==='admin'&&!TABS.includes('Team')){TABS.splice(TABS.indexOf('Invoices')+1,0,'Financials');TABS.push('Team')}$('gate').innerHTML='';$('app').hidden=false;$('who').textContent=ME.name+' ('+ME.role+')';
   attractions=await q(sb.from('attractions').select('*').order('sort'));
   // The database price list is the source of truth for quotes (falls back to shared/pricing.js if it can't load).
   const [tiers,pset]=await Promise.all([q(sb.from('price_tiers').select('*')),q(sb.from('settings').select('value').eq('key','pricing'))]);
@@ -71,27 +72,29 @@ async function boot(){
 }
 async function doReset(){try{await resetPassword($('em').value);$('lerr').style.color='#3f6b2f';$('lerr').textContent='Check your email for a link.'}catch(x){$('lerr').textContent=x.message}}
 async function doLogin(e){e.preventDefault();try{await signIn($('em').value,$('pw').value);location.reload()}catch(x){$('lerr').textContent=x.message}}
-function go(t){tab=t;document.querySelectorAll('nav button').forEach(b=>b.classList.toggle('on',b.dataset.t===t));({Dashboard,Leads,Customers,Events,Quotes,Contracts,Invoices,Tasks,Team})[t]()}
+function go(t){tab=t;document.querySelectorAll('nav button').forEach(b=>b.classList.toggle('on',b.dataset.t===t));({Dashboard,Leads,Customers,Events,Quotes,Contracts,Invoices,Tasks,Team,Financials})[t]()}
 function goF(t,f){filt={...f};go(t)}
 
 async function Dashboard(){
   const today=new Date().toISOString().slice(0,10);
-  const [leads,events,inv,tasks,qs,cons]=await Promise.all([q(sb.from('leads').select('status')),q(sb.from('events').select('*').gte('end_date',today).neq('status','cancelled').order('start_date').limit(8)),q(sb.from('invoices').select('amount,status')),q(sb.from('tasks').select('id').eq('done',false)),q(sb.from('quotes').select('status')),q(sb.from('contracts').select('status'))]);
+  const [leads,events,inv,tasks,qs,cons]=await Promise.all([q(sb.from('leads').select('status')),q(sb.from('events').select('*, event_staff(employee_id, employees(name))').gte('end_date',today).neq('status','cancelled').order('start_date').limit(8)),q(sb.from('invoices').select('amount,status')),q(sb.from('tasks').select('id').eq('done',false)),q(sb.from('quotes').select('status')),q(sb.from('contracts').select('status'))]);
   const n=s=>leads.filter(l=>l.status===s).length, owed=inv.filter(i=>i.status==='unpaid').reduce((a,i)=>a+ +i.amount,0), paid=inv.filter(i=>i.status==='paid').reduce((a,i)=>a+ +i.amount,0);
+  let finTile='';
+  if(ME.role==='admin'){await finLoad();const fd=finYearData(new Date().getFullYear());finTile=`<div class="card stat" style="cursor:pointer" onclick="go('Financials')"><b>${fm(fd.revT)}</b>${new Date().getFullYear()} revenue</div>`}
   const T=(t,f,v,l)=>`<div class="card stat" style="cursor:pointer" onclick='goF("${t}",${JSON.stringify(f)})'><b>${v}</b>${l}</div>`;
-  $('view').innerHTML=`<div class="grid">
+  $('view').innerHTML=`<p style="margin-top:0"><button class="p" onclick="openNewLead()">+ New lead</button></p><div class="grid">
    ${T('Leads',{status:'new'},n('new'),'New leads')}${T('Quotes',{status:'sent'},qs.filter(x=>x.status==='sent').length,'Quotes out')}
    ${T('Contracts',{status:'sent'},cons.filter(c=>c.status==='sent').length,'Awaiting signature')}${T('Invoices',{status:'unpaid'},money(owed),'Unpaid invoices')}${T('Invoices',{status:'paid'},money(paid),'Collected')}
-   ${T('Tasks',{},tasks.length,'Open tasks')}</div>
+   ${T('Tasks',{},tasks.length,'Open tasks')}${finTile}</div>
    <h3>Upcoming events</h3>${evTable(events)}`;
 }
-const evTable=ev=>ev.length?`<table><tr><th>Event</th><th>Dates</th><th>Where</th><th>Status</th></tr>${ev.map(e=>`<tr style="cursor:pointer" onclick="openEvent('${e.id}')"><td>${esc(e.name)}</td><td>${fmtDate(e.start_date)} – ${fmtDate(e.end_date)}</td><td>${esc(e.city||e.venue)}</td><td>${pill(e.status)}</td></tr>`).join('')}</table>`:'<p class="muted">Nothing yet.</p>';
+const evTable=ev=>ev.length?`<table><tr><th>Event</th><th>Dates</th><th>Where</th><th>Team</th><th>Status</th></tr>${ev.map(e=>`<tr style="cursor:pointer" onclick="openEvent('${e.id}')"><td>${esc(e.name)}</td><td>${fmtDate(e.start_date)} – ${fmtDate(e.end_date)}</td><td>${esc(e.city||e.venue)}</td><td>${esc((e.event_staff||[]).map(x=>x.employees&&x.employees.name).filter(Boolean).join(', '))}</td><td>${pill(e.status)}</td></tr>`).join('')}</table>`:'<p class="muted">Nothing yet.</p>';
 
 const chips=(t,opts,cur)=>`<p>${['all',...opts].map(o=>`<button class="s" style="${(cur||'all')===o?'background:var(--barn);color:#fff':''}" onclick='goF("${t}",${JSON.stringify(o==='all'?{}:{status:o})})'>${o}</button>`).join(' ')}</p>`;
 async function Leads(){
   let qy=sb.from('leads').select('*').order('created_at',{ascending:false});if(filt.status)qy=qy.eq('status',filt.status);
   const leads=await q(qy);
-  $('view').innerHTML=`<h2>Leads</h2>${chips('Leads',['new','contacted','quoted','won','lost'],filt.status)}${leads.length?`<table><tr><th>Received</th><th>Who</th><th>Interest</th><th>Status</th></tr>${leads.map(l=>`<tr style="cursor:pointer" onclick="openLead('${l.id}')">
+  $('view').innerHTML=`<h2>Leads <button class="p" style="float:right" onclick="openNewLead()">+ New lead</button></h2>${chips('Leads',['new','contacted','quoted','won','lost'],filt.status)}${leads.length?`<table><tr><th>Received</th><th>Who</th><th>Interest</th><th>Status</th></tr>${leads.map(l=>`<tr style="cursor:pointer" onclick="openLead('${l.id}')">
    <td>${fmtDate(l.created_at)}</td><td><b>${esc(l.name)}</b><br>${esc(l.organization)}<br>${esc(l.email)} ${l.phone?`· ${esc(l.phone)}`:''}</td>
    <td>${esc(l.event_dates)}<br>${esc(l.booths_interest)}<br><span class="muted">${esc((l.message||'').slice(0,90))}</span></td>
    <td>${pill(l.status)}</td></tr>`).join('')}</table>`:'<p class="muted">No leads here.</p>'}`;
@@ -108,6 +111,21 @@ async function openLead(id){
    <h3>Notes</h3><textarea id="newnote" rows="2" placeholder="Add a note…"></textarea><button class="s" onclick="addLeadNote('${id}')">Add</button>
    ${acts.map(a=>`<p class="muted">${fmtDate(a.created_at)} · ${esc(a.created_by)}: ${esc(a.body)}</p>`).join('')}`;
   $('dlg').showModal();
+}
+function openNewLead(){
+  const f=(k,l,t)=>`<div><label>${l}</label><input id="nl_${k}" type="${t||'text'}"></div>`;
+  $('dlg').innerHTML=`<h2>New lead</h2><div class="row">${f('name','Name *')}${f('organization','Fair / organization')}${f('email','Email','email')}${f('phone','Phone')}${f('event_dates','Event dates')}${f('booths_interest','Booths interested in')}</div>
+   <label>Notes</label><textarea id="nl_message" rows="3"></textarea><p id="nl_err" class="err"></p>
+   <p><button class="p" onclick="createLead()">Save lead</button> <button class="s" onclick="$('dlg').close()">Cancel</button></p>`;
+  $('dlg').showModal();
+}
+async function createLead(){
+  const v=k=>$('nl_'+k).value.trim()||null, name=v('name'), email=v('email');
+  if(!name)return $('nl_err').textContent='Name is required.';
+  if(email&&!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email))return $('nl_err').textContent='That email address doesn\'t look right.';
+  const {error}=await sb.from('leads').insert({name,organization:v('organization'),email,phone:v('phone'),event_dates:v('event_dates'),booths_interest:v('booths_interest'),message:v('message'),source:'crm'});
+  if(error)return $('nl_err').textContent=error.message;
+  $('dlg').close();go(tab==='Dashboard'?'Leads':tab);
 }
 async function saveLead(id){
   const v=k=>$('l_'+k).value.trim()||null;
@@ -143,15 +161,18 @@ function calGrid(ev){
    <div class="cal">${['Sun','Mon','Tue','Wed','Thu','Fri','Sat'].map(x=>`<div class="cal-h">${x}</div>`).join('')}${body}</div>
    ${undated.length?`<p class="muted">No dates yet: ${undated.map(e=>`<a href="#" onclick="openEvent('${e.id}');return false">${esc(e.name)}</a>`).join(', ')}</p>`:''}`;
 }
+let evMine=false;
+function setEvMine(v){evMine=v;Events()}
 async function Events(){
-  const ev=await q(sb.from('events').select('*').order('start_date',{ascending:evView==='cal'}));
-  $('view').innerHTML=`<h2>Events <span class="tog" style="margin-left:10px;font-size:14px"><button class="s ${evView==='list'?'on':''}" onclick="setEvView('list')">List</button><button class="s ${evView==='cal'?'on':''}" onclick="setEvView('cal')">Calendar</button></span> <button class="p" style="float:right" onclick="newEvent()">+ New event</button></h2>${evView==='cal'?calGrid(ev):evTable(ev)}`;
+  let ev=await q(sb.from('events').select('*, event_staff(employee_id, employees(name))').order('start_date',{ascending:evView==='cal'}));
+  if(evMine)ev=ev.filter(e=>(e.event_staff||[]).some(x=>x.employee_id===ME.id));
+  $('view').innerHTML=`<h2>Events <span class="tog" style="margin-left:10px;font-size:14px"><button class="s ${evView==='list'?'on':''}" onclick="setEvView('list')">List</button><button class="s ${evView==='cal'?'on':''}" onclick="setEvView('cal')">Calendar</button></span> <span class="tog" style="margin-left:6px;font-size:14px"><button class="s ${!evMine?'on':''}" onclick="setEvMine(false)">All</button><button class="s ${evMine?'on':''}" onclick="setEvMine(true)">Assigned to me</button></span> <button class="p" style="float:right" onclick="newEvent()">+ New event</button></h2>${evView==='cal'?calGrid(ev):evTable(ev)}`;
 }
 async function newEvent(oid,cid){const [e]=await q(sb.from('events').insert({name:'New event',organization_id:oid||null,contact_id:cid||null}).select());if(e)openEvent(e.id)}
 async function openEvent(id){
   const {data:e}=await sb.from('events').select('*').eq('id',id).single();
-  const [orgs,contacts,cons,quotes,inv,acts,sel]=await Promise.all([q(sb.from('organizations').select('id,name').order('name')),q(sb.from('contacts').select('id,name,organization_id').order('name')),q(sb.from('contracts').select('id,status,title,sent_at,signed_at,signed_name').eq('event_id',id).order('created_at',{ascending:false})),q(sb.from('quotes').select('*').eq('event_id',id).order('created_at',{ascending:false})),q(sb.from('invoices').select('*').eq('event_id',id)),q(sb.from('activities').select('*').eq('event_id',id).order('created_at',{ascending:false})),q(sb.from('event_attractions').select('attraction_id').eq('event_id',id))]);
-  const picked=new Set(sel.map(s=>s.attraction_id)), days=daysBetween(e.start_date,e.end_date)||1;
+  const [staffAll,staffSel,orgs,contacts,cons,quotes,inv,acts,sel]=await Promise.all([q(sb.from('employees').select('id,name').eq('status','active').order('name')),q(sb.from('event_staff').select('employee_id').eq('event_id',id)),q(sb.from('organizations').select('id,name').order('name')),q(sb.from('contacts').select('id,name,organization_id').order('name')),q(sb.from('contracts').select('id,status,title,sent_at,signed_at,signed_name').eq('event_id',id).order('created_at',{ascending:false})),q(sb.from('quotes').select('*').eq('event_id',id).order('created_at',{ascending:false})),q(sb.from('invoices').select('*').eq('event_id',id)),q(sb.from('activities').select('*').eq('event_id',id).order('created_at',{ascending:false})),q(sb.from('event_attractions').select('attraction_id').eq('event_id',id))]);
+  const picked=new Set(sel.map(s=>s.attraction_id)), crew=new Set(staffSel.map(s=>s.employee_id)), days=daysBetween(e.start_date,e.end_date)||1;
   const d=$('dlg');d.innerHTML=`<h2>${esc(e.name)}</h2>
    <div class="row"><div><label>Name</label><input id="e_name" value="${esc(e.name)}"></div><div><label>Status</label><select id="e_status">${['tentative','confirmed','completed','cancelled'].map(s=>`<option ${s===e.status?'selected':''}>${s}</option>`).join('')}</select></div>
    <div><label>Customer</label><select id="e_org" onchange="fillContacts()"><option value="">–</option>${orgs.map(o=>`<option value="${o.id}" ${o.id===e.organization_id?'selected':''}>${esc(o.name)}</option>`).join('')}</select></div>
@@ -161,6 +182,7 @@ async function openEvent(id){
    <div><label>Booths</label><select id="e_booths" onchange="qbPreview()"><option value="">–</option>${[4,6,8,10].map(b=>`<option ${b==e.booths?'selected':''}>${b}</option>`).join('')}</select></div>
    <div><label>Craft station</label><select id="e_craft" onchange="qbPreview()"><option value="false">No</option><option value="true" ${e.craft_station?'selected':''}>Yes</option></select></div></div>
    <label>Load-in / notes</label><textarea id="e_notes" rows="3">${esc(e.load_in_notes||e.notes)}</textarea>
+   <label>Assigned team</label><div class="row">${staffAll.map(m=>`<label style="font-weight:400"><input type="checkbox" style="width:auto" class="stf" value="${m.id}" ${crew.has(m.id)?'checked':''}> ${esc(m.name)}</label>`).join('')||'<span class="muted">No team members yet.</span>'}</div>
    <label>Attractions</label><div class="row">${attractions.map(a=>`<label style="font-weight:400"><input type="checkbox" style="width:auto" class="att" value="${a.id}" ${picked.has(a.id)?'checked':''}> ${esc(a.name)}</label>`).join('')}</div>
    <p><button class="p" onclick="saveEvent('${id}')">Save</button> <button class="s" onclick="$('dlg').close()">Close</button></p>
    <h3>Quote</h3><p class="muted">Priced from the price list using the booths, craft station and dates above. Add travel or a discount, then create the quote — you can still edit every number on it afterwards.</p>
@@ -180,6 +202,9 @@ function fillContacts(){const o=$('e_org').value,cur=window._evContact;$('e_cont
 async function saveEvent(id){
   const v=k=>$('e_'+k).value||null;
   await q(sb.from('events').update({name:v('name'),status:v('status'),start_date:v('start'),end_date:v('end'),venue:v('venue'),city:v('city'),organization_id:v('org'),contact_id:v('contact'),booths:v('booths')?+v('booths'):null,craft_station:v('craft')==='true',load_in_notes:v('notes')}).eq('id',id));
+  await sb.from('event_staff').delete().eq('event_id',id);
+  const crewRows=[...document.querySelectorAll('.stf:checked')].map(c=>({event_id:id,employee_id:c.value}));
+  if(crewRows.length)await q(sb.from('event_staff').insert(crewRows));
   await sb.from('event_attractions').delete().eq('event_id',id);
   const rows=[...document.querySelectorAll('.att:checked')].map(c=>({event_id:id,attraction_id:c.value}));
   if(rows.length)await q(sb.from('event_attractions').insert(rows));
@@ -347,8 +372,100 @@ async function saveContact(cid,oid){
 async function Contracts(){
   let qy=sb.from('contracts').select('*').order('created_at',{ascending:false});if(filt.status)qy=qy.eq('status',filt.status);
   const [cs,ev]=await Promise.all([q(qy),q(sb.from('events').select('id,name'))]);const nm=Object.fromEntries(ev.map(e=>[e.id,e.name]));
-  $('view').innerHTML=`<h2>Contracts</h2>${chips('Contracts',['draft','sent','signed','void'],filt.status)}${cs.length?`<table><tr><th>Created</th><th>Customer</th><th>Event</th><th>Total</th><th>Status</th></tr>${cs.map(c=>`<tr style="cursor:pointer" onclick="openContract('${c.id}')"><td>${fmtDate(c.created_at)}</td><td>${esc(c.terms.contractee_name)}</td><td>${esc(nm[c.event_id]||'')}</td><td>${money(c.terms.total)}</td><td>${pill(c.status)}${c.signed_at?`<br><span class="muted">${fmtDate(c.signed_at)}</span>`:''}</td></tr>`).join('')}</table>`:'<p class="muted">No contracts here. Create one from an event once the quote is accepted.</p>'}`;
+  $('view').innerHTML=`<h2>Contracts <button class="p" style="float:right" onclick="pickContractPdf()">⬆ Import contract PDF</button><input type="file" id="pdfIn" accept="application/pdf" hidden onchange="readContractPdf(this)"></h2>${chips('Contracts',['draft','sent','signed','void'],filt.status)}${cs.length?`<table><tr><th>Created</th><th>Customer</th><th>Event</th><th>Total</th><th>Status</th></tr>${cs.map(c=>`<tr style="cursor:pointer" onclick="openContract('${c.id}')"><td>${fmtDate(c.created_at)}</td><td>${esc(c.terms.contractee_name)}</td><td>${esc(nm[c.event_id]||'')}</td><td>${money(c.terms.total)}</td><td>${pill(c.status)}${c.signed_at?`<br><span class="muted">${fmtDate(c.signed_at)}</span>`:''}</td></tr>`).join('')}</table>`:'<p class="muted">No contracts here. Create one from an event once the quote is accepted.</p>'}`;
 }
+// ---------- Import a contract PDF: read it, build the customer / event / quote / digital contract (+ signature if signed)
+const PDFJS='https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/';
+const loadScript=src=>new Promise((res,rej)=>{if(document.querySelector(`script[src="${src}"]`))return res();const el=document.createElement('script');el.src=src;el.onload=res;el.onerror=()=>rej(new Error('Could not load the PDF reader — check your connection and try again.'));document.head.appendChild(el)});
+const normName=x=>String(x||'').toLowerCase().replace(/[^a-z0-9 ]/g,' ').replace(/\s+/g,' ').trim();
+function pickContractPdf(){$('pdfIn').value='';$('pdfIn').click()}
+async function readContractPdf(inp){
+  const f=inp.files&&inp.files[0];if(!f)return;
+  if(f.size>15*1024*1024)return alert('That PDF is over 15 MB.');
+  $('dlg').innerHTML='<h2>Reading contract…</h2><p class="muted">One moment.</p>';$('dlg').showModal();
+  try{
+    await loadScript(PDFJS+'pdf.min.js');pdfjsLib.GlobalWorkerOptions.workerSrc=PDFJS+'pdf.worker.min.js';
+    const doc=await pdfjsLib.getDocument({data:new Uint8Array(await f.arrayBuffer())}).promise;let lines=[];
+    for(let i=1;i<=doc.numPages;i++){const tc=await (await doc.getPage(i)).getTextContent();lines=lines.concat(ContractImport.itemsToLines(tc.items))}
+    if(lines.join(' ').length<80){$('dlg').close();return alert('This PDF has no readable text (it may be a scan or photo). Use New contract on an event instead, or upload a PDF saved from a computer.')}
+    window._impFile=f;window._imp=ContractImport.parse(lines);await openImportReview();
+  }catch(x){$('dlg').close();alert('Could not read that PDF: '+x.message)}
+}
+async function openImportReview(){
+  const r=window._imp, orgs=await q(sb.from('organizations').select('id,name').order('name'));
+  const hit=orgs.find(o=>normName(o.name)===normName(r.contractee_name))||orgs.find(o=>normName(r.contractee_name).length>4&&(normName(o.name).includes(normName(r.contractee_name))||normName(r.contractee_name).includes(normName(o.name))));
+  const f=(k,l,type,val)=>`<div><label>${l}</label><input id="ci_${k}" type="${type||'text'}" value="${esc(val!==undefined?val:r[k])}"></div>`;
+  $('dlg').innerHTML=`<h2>Import contract — review</h2>
+   ${r.warnings.length?`<div class="card" style="border-color:var(--barn)"><b class="err">Check these</b><ul style="margin:4px 0">${r.warnings.map(w=>`<li>${esc(w)}</li>`).join('')}</ul></div>`:'<p class="muted">Everything was read from the PDF. Check it, fix anything that looks off, then import.</p>'}
+   <h3>Customer</h3><div class="row"><div><label>Customer record</label><select id="ci_org"><option value="">➕ Create new: ${esc(r.contractee_name||'(name needed)')}</option>${orgs.map(o=>`<option value="${o.id}" ${hit&&o.id===hit.id?'selected':''}>${esc(o.name)}${hit&&o.id===hit.id?' (match found)':''}</option>`).join('')}</select></div>
+   ${f('contractee_name','Customer name')}${f('street','Street address')}${f('city','City')}${f('state','State')}${f('zip','ZIP')}${f('contractee_phone','Phone')}
+   <div><label>Contact name (optional)</label><input id="ci_cname"></div><div><label>Contact email (for the portal)</label><input id="ci_cemail" type="email"></div></div>
+   <h3>Event &amp; items</h3><div class="row">${f('start_date','Start date','date')}${f('end_date','End date','date')}${f('times_text','Times of engagement')}${f('booths','Booths','number')}${f('days','Days','number')}
+   <div><label>Craft station</label><select id="ci_craft"><option value="false">No</option><option value="true" ${r.craft?'selected':''}>Yes</option></select></div>${f('contractor_date','Contractor date (as printed)')}</div>
+   <label>Type of entertainment (one per line)</label><textarea id="ci_ent" rows="3">${esc(r.entertainment.join('\n'))}</textarea>
+   <label>Requirements (one per line)</label><textarea id="ci_req" rows="4">${esc(r.requirements.join('\n'))}</textarea>
+   <h3>Pricing</h3><label>Price lines (description | amount — discounts negative)</label><textarea id="ci_price" rows="3">${esc(r.price_lines.map(l=>l.label+' | '+l.amount).join('\n'))}</textarea>
+   <div class="row"><div><label>Retainer ($) — blank = 1/3</label><input id="ci_ret" type="number" step="any" value="${r.retainer&&r.total&&Math.abs(r.retainer-r.total/3)>0.01?r.retainer:''}"></div></div>
+   <h3>Signature</h3><label style="display:flex;gap:8px;align-items:center;font-weight:400"><input type="checkbox" id="ci_signed" style="width:auto" ${r.signed?'checked':''}> This contract has been signed by the customer</label>
+   <p class="muted" style="margin:4px 0">${r.signed?'A signer name and date were found on the signature lines.':'No signature was detected (blank signature lines). Tick this if the PDF is a signed copy.'} If ticked, the contract is stored as signed and the event is scheduled and confirmed on the calendar.</p>
+   <div class="row">${f('signed_name','Signed by (printed name)')}${f('signed_title','Title (optional)')}<div><label>Date signed</label><input id="ci_sdate" type="date" value="${r.signed_date||''}"></div></div>
+   <p id="ci_err" class="err"></p><p><button class="p" id="ci_go" onclick="importContract()">Import contract</button> <button class="s" onclick="$('dlg').close()">Cancel</button></p>`;
+}
+const priceLinesFrom=txt=>txt.split('\n').map(l=>l.trim()).filter(Boolean).map(l=>{const i=l.lastIndexOf('|');return i<0?{label:l,amount:0}:{label:l.slice(0,i).trim(),amount:+l.slice(i+1).replace(/[$,\s]/g,'')||0}}).filter(l=>l.label);
+const round2=n=>Math.round((+n||0)*100)/100;
+async function importContract(){
+  const v=k=>$('ci_'+k).value.trim(), err=m=>{$('ci_err').textContent=m;return false}, r=window._imp, signed=$('ci_signed').checked, btn=$('ci_go');
+  const name=v('contractee_name'),start=v('start_date'),end=v('end_date')||v('start_date'),booths=+v('booths')||0,days=Math.max(1,+v('days')||daysBetween(start,end)||1);
+  const lines=priceLinesFrom($('ci_price').value), total=round2(lines.reduce((a,l)=>a+l.amount,0));
+  if(!name)return err('Customer name is required.');if(!start)return err('Start date is required.');if(!lines.length||total<=0)return err('At least one price line is required.');
+  if(signed&&v('signed_name').length<2)return err('Enter who signed.');
+  const sName=v('signed_name'), sTitle=v('signed_title'), sDate=v('sdate'), contactName=v('cname'), contactEmail=v('cemail'), retIn=+v('ret'), cDate=v('contractor_date'), street=v('street'), city=v('city'), st=v('state'), zip=v('zip'), phone=v('contractee_phone'), timesText=v('times_text'); // read every field before writing anything
+  const orgSel=$('ci_org').value;
+  if(orgSel){const {data:dup}=await sb.from('contracts').select('id,status,terms').eq('organization_id',orgSel).neq('status','void');
+    if((dup||[]).some(c=>c.terms&&c.terms.start_date===start)&&!confirm('This customer already has a contract starting '+fmtDate(start)+'. Import another anyway?'))return}
+  btn.disabled=true;btn.textContent='Importing…';
+  try{
+    // 1. customer + contact
+    let orgId=orgSel, orgRow={name,kind:'fair',address:street||null,city:city||null,state:st||'TX',zip:zip||null,phone:phone||null};
+    if(!orgId){const {data,error}=await sb.from('organizations').insert(orgRow).select().single();if(error)throw error;orgId=data.id}
+    const cname=contactName||(signed?sName:''), cemail=contactEmail||null;let contactId=null;
+    if(cname){const {data:ex}=await sb.from('contacts').select('id,email').eq('organization_id',orgId).ilike('name',cname).limit(1);
+      if(ex&&ex[0]){contactId=ex[0].id;if(cemail&&!ex[0].email)await sb.from('contacts').update({email:cemail}).eq('id',contactId)}
+      else{const {data,error}=await sb.from('contacts').insert({organization_id:orgId,name:cname,email:cemail,phone:phone||null}).select().single();if(error)throw error;contactId=data.id}}
+    // 2. event (scheduled + confirmed only when signed)
+    const craft=$('ci_craft').value==='true', year=r.year||start.slice(0,4);
+    const names=(r.booth_names||[]).filter(Boolean);
+    const {data:ev,error:eerr}=await sb.from('events').insert({name:`${name} ${year}`,organization_id:orgId,contact_id:contactId,city:city||null,booths:booths||null,craft_station:craft,
+      status:signed?'confirmed':'tentative',start_date:signed?start:null,end_date:signed?end:null,notes:'Imported from contract PDF.'+(names.length?' Booths: '+names.join(', ')+'.':'')}).select().single();
+    if(eerr)throw eerr;
+    // 3. items -> matched attractions
+    const hits=attractions.filter(a=>names.some(n=>{const x=normName(a.name),y=normName(n);return x&&y&&(x===y||(y.length>=5&&x.includes(y))||(x.length>=5&&y.includes(x)))}));
+    if(hits.length)await sb.from('event_attractions').insert(hits.map(a=>({event_id:ev.id,attraction_id:a.id})));
+    // 4. quote (pricing from the contract)
+    const craftFee=round2(lines.filter(l=>l.amount>0&&/craft/i.test(l.label)).reduce((a,l)=>a+l.amount,0)), pos=lines.filter(l=>l.amount>0&&!/craft/i.test(l.label)), neg=lines.filter(l=>l.amount<0);
+    const base=pos[0]?pos[0].amount:0, other=round2(pos.slice(1).reduce((a,l)=>a+l.amount,0)), disc=round2(-neg.reduce((a,l)=>a+l.amount,0));
+    const {data:qt,error:qerr}=await sb.from('quotes').insert({event_id:ev.id,booths:booths||1,days,craft_station:craft,per_day:round2(base/days),craft_fee:craftFee,travel_fee:other,discount:disc,discount_label:neg[0]?neg[0].label:null,total,status:signed?'accepted':'sent'}).select().single();
+    if(qerr)throw qerr;
+    // 5. digital contract
+    const retainer=retIn||round2(total/3);
+    const terms={contractee_name:name,contractee_address:[street,city,[st,zip].filter(Boolean).join(' ')].filter(Boolean).join(', '),contractee_phone:phone,start_date:start,end_date:end,times_text:timesText,
+      contractor_date:cDate||ContractDoc.longDate(new Date().toISOString().slice(0,10)),entertainment:$('ci_ent').value.split('\n').map(x=>x.trim()).filter(Boolean),requirements:$('ci_req').value.split('\n').map(x=>x.trim()).filter(Boolean),price_lines:lines,total,retainer,final:round2(total-retainer)};
+    const id=crypto.randomUUID(), row={id,event_id:ev.id,quote_id:qt.id,contact_id:contactId,organization_id:orgId,title:year+' Agreement',terms,body_html:ContractDoc.render(terms),status:signed?'signed':'sent',sent_at:new Date().toISOString(),created_by:ME.name};
+    if(signed){row.signed_at=sDate?sDate+'T12:00:00Z':new Date().toISOString();row.signed_name=sName;row.signed_title=sTitle||null;row.signed_user_agent='Imported from signed PDF'}
+    const {error:cerr}=await sb.from('contracts').insert(row);if(cerr)throw cerr;
+    // 6. keep the original PDF
+    const path=id+'/original.pdf', up=await sb.storage.from('contract-pdfs').upload(path,window._impFile,{contentType:'application/pdf',upsert:true});
+    if(up.error)alert('The contract was imported, but the original PDF could not be stored: '+up.error.message);else await sb.from('contracts').update({source_pdf_path:path}).eq('id',id);
+    await sb.from('activities').insert({event_id:ev.id,kind:'note',body:'Imported '+(signed?'signed ':'')+'contract from PDF'+(signed?' (signed by '+sName+')':''),created_by:ME.name});
+    window._imp=window._impFile=null;await openContract(id);if(tab==='Contracts')Contracts();
+  }catch(x){btn.disabled=false;btn.textContent='Import contract';err('Import failed: '+(x.message||x)+'. Nothing was lost — you can fix it and try again, but check Customers/Events for a partly created record.')}
+}
+async function viewPdf(path){
+  const w=window.open('','_blank');const {data,error}=await sb.storage.from('contract-pdfs').createSignedUrl(path,300);
+  if(error||!data){if(w)w.close();return alert('Could not open the PDF: '+(error&&error.message))}
+  if(w)w.location=data.signedUrl;else location.href=data.signedUrl;
+}
+
 let CF=null, CUR=null;
 // A quote-shaped price straight from the price list, for events that don't have a quote yet.
 function eventPriceQuote(e){
@@ -419,7 +536,7 @@ async function openContract(id){
   const live=c.status==='sent';
   $('dlg').innerHTML=`<h2>${esc(c.title)} ${pill(c.status)}</h2><p class="muted">${esc(c.terms.contractee_name)}${c.sent_at?` · sent ${fmtDate(c.sent_at)}`:''}${c.signed_at?` · signed ${fmtDate(c.signed_at)}`:''}</p>
    <p>${c.status==='draft'||live?`<button class="p" onclick="emailContract('${id}')">✉ ${live?'Resend email':'Email to customer'}</button> `:''}${c.status==='draft'?`<button class="s" onclick="markSent('${id}')">Mark as sent (no email)</button> `:''}${c.status==='draft'||live?`<button class="s" onclick="openContractForm('${c.event_id}','${id}')">Edit</button> `:''}${c.status!=='void'?`<button class="s" onclick="copyLink()">Copy signing link</button> ${contact&&contact.email?`<a class="s" style="text-decoration:none;color:inherit;display:inline-block" href="mailto:${esc(contact.email)}?subject=${sub}&body=${body}">Open in my mail app</a> `:''}`:''}
-   ${c.status==='signed'||c.status==='sent'?`<button class="s" onclick="printContract()">Print / PDF</button> `:''}<button class="s" onclick="openEvent('${c.event_id}')">Open event</button> <button class="s" onclick="$('dlg').close()">Close</button>
+   ${c.status==='signed'||c.status==='sent'?`<button class="s" onclick="printContract()">Print / PDF</button> `:''}${c.source_pdf_path?`<button class="s" onclick="viewPdf('${c.source_pdf_path}')">📄 Original PDF</button> `:''}<button class="s" onclick="openEvent('${c.event_id}')">Open event</button> <button class="s" onclick="$('dlg').close()">Close</button>
    ${c.status==='draft'?`<button class="s" style="float:right;color:var(--barn)" onclick="delContract('${id}')">Delete</button>`:c.status!=='void'?`<button class="s" style="float:right;color:var(--barn)" onclick="voidContract('${id}')">Void</button>`:''}</p>
    ${c.status==='sent'?'<p class="muted">Waiting for the customer to sign. They can sign from the emailed link or by logging in at /portal/.</p>':''}
    <div id="cdoc" style="background:#fff;border:1px solid var(--line);border-radius:10px;padding:18px">${c.body_html}</div>${c.status==='signed'?ContractDoc.signedBlock(c):''}`;
@@ -437,6 +554,90 @@ function printContract(){
   w.document.close();setTimeout(()=>w.print(),300);
 }
 
+// ---------- Financials (admins only): revenue by month/year, cash received, receivables.
+// Modeled on the AllStar Moonwalks reports (Revenue by Month, Annual Revenue, Monthly Payments, Receivables).
+// Revenue = value of booked (confirmed/completed) events: the signed contract total, else the accepted quote, else the latest quote.
+// It is recognized on the event days (a multi-day event is split across the months it runs). Tentative events show as pipeline.
+let finYear=new Date().getFullYear(), finTab='overview', FIN=null;
+const MN=['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+async function finLoad(){
+  const [events,quotes,contracts,invoices,payments,orgs]=await Promise.all([q(sb.from('events').select('id,name,start_date,end_date,status,organization_id')),q(sb.from('quotes').select('event_id,total,status,created_at')),q(sb.from('contracts').select('event_id,status,terms,signed_at')),q(sb.from('invoices').select('id,event_id,number,kind,amount,status,due_date')),q(sb.from('payments').select('*')),q(sb.from('organizations').select('id,name'))]);
+  const org=Object.fromEntries(orgs.map(o=>[o.id,o.name])), inv=Object.fromEntries(invoices.map(i=>[i.id,i])), evById=Object.fromEntries(events.map(e=>[e.id,e]));
+  const value=e=>{
+    const c=contracts.filter(x=>x.event_id===e.id&&x.status==='signed'&&x.terms&&+x.terms.total).sort((a,b)=>String(b.signed_at).localeCompare(String(a.signed_at)))[0];if(c)return +c.terms.total;
+    const qs=quotes.filter(x=>x.event_id===e.id&&x.status!=='declined').sort((a,b)=>String(b.created_at).localeCompare(String(a.created_at))), acc=qs.find(x=>x.status==='accepted');
+    if(acc)return +acc.total;return qs[0]?+qs[0].total:0};
+  const booked=events.filter(e=>(e.status==='confirmed'||e.status==='completed')&&e.start_date).map(e=>({...e,value:value(e),org:org[e.organization_id]||''}));
+  const pipeline=events.filter(e=>e.status==='tentative').map(e=>({...e,value:value(e),org:org[e.organization_id]||''})).filter(e=>e.value>0);
+  const paid=payments.map(p=>({...p,amount:+p.amount,inv:inv[p.invoice_id],ev:evById[p.event_id]}));
+  FIN={booked,pipeline,paid,invoices,org,evById};
+}
+// revenue per YYYY-MM for one event, split by the days that fall in each month
+function spreadRevenue(e){
+  const out={}, a=new Date(e.start_date+'T12:00:00'), b=new Date((e.end_date||e.start_date)+'T12:00:00'), n=Math.min(400,Math.max(1,Math.round((b-a)/864e5)+1));
+  for(let i=0;i<n;i++){const d=new Date(a);d.setDate(a.getDate()+i);const k=d.getFullYear()+'-'+pad(d.getMonth()+1);out[k]=(out[k]||0)+e.value/n}
+  return out;
+}
+function finYearData(y){
+  const rev=Array(12).fill(0), cnt=Array(12).fill(0), rec=Array(12).fill(0), dep=Array(12).fill(0), bal=Array(12).fill(0), inMonth=Array(12).fill(0);
+  FIN.booked.forEach(e=>{const sp=spreadRevenue(e);for(let m=0;m<12;m++)rev[m]+=sp[y+'-'+pad(m+1)]||0;if(+e.start_date.slice(0,4)===y)cnt[+e.start_date.slice(5,7)-1]++});
+  FIN.paid.forEach(p=>{if(!p.paid_at||+p.paid_at.slice(0,4)!==y)return;const m=+p.paid_at.slice(5,7)-1;rec[m]+=p.amount;
+    if(p.inv&&p.inv.kind==='deposit')dep[m]+=p.amount;else bal[m]+=p.amount;
+    if(p.ev&&p.ev.start_date&&p.ev.start_date.slice(0,7)===p.paid_at.slice(0,7))inMonth[m]+=p.amount});
+  const sum=a=>a.reduce((x,y2)=>x+y2,0);
+  return {rev,cnt,rec,dep,bal,inMonth,revT:sum(rev),cntT:sum(cnt),recT:sum(rec),depT:sum(dep),balT:sum(bal),inT:sum(inMonth)};
+}
+const fm=n=>'$'+Math.round(n).toLocaleString('en-US');
+function finDrawChart(cv,labels,a,b){
+  const W=cv.parentElement.clientWidth||600,H=240;cv.width=W;cv.height=H;const g=cv.getContext('2d'),pd={t:14,r:10,b:30,l:48},cw=W-pd.l-pd.r,ch=H-pd.t-pd.b,max=Math.max(...a,...b,1);g.clearRect(0,0,W,H);
+  g.strokeStyle='#e8dcc0';g.fillStyle='#7a6a45';g.font='10px system-ui';g.textAlign='right';
+  for(let i=0;i<=4;i++){const y=pd.t+ch*(1-i/4);g.beginPath();g.moveTo(pd.l,y);g.lineTo(W-pd.r,y);g.stroke();g.fillText('$'+(max*i/4/1000).toFixed(max>=4000?0:1)+'k',pd.l-4,y+3)}
+  const gap=cw/labels.length,bw=gap*0.34;
+  labels.forEach((l,i)=>{const x=pd.l+gap*i+gap*0.12;
+    [[a[i],'#a8321f'],[b[i],'#3f6b2f']].forEach(([v,c],k)=>{const h=ch*v/max;g.fillStyle=c;g.fillRect(x+k*(bw+2),pd.t+ch-h,bw,h)});
+    g.fillStyle='#6b4a2b';g.textAlign='center';g.fillText(l,x+bw,H-12)});
+}
+function finTabs(){return `<p class="tog">${[['overview','Overview'],['payments','Payments received'],['receivables','Receivables'],['years','By year']].map(([k,l])=>`<button class="s ${finTab===k?'on':''}" onclick="finTab='${k}';Financials()">${l}</button>`).join('')}</p>`}
+const finYearNav=()=>`<p><button class="s" onclick="finYear--;Financials()">◀</button> <b style="display:inline-block;min-width:60px;text-align:center;font-size:18px">${finYear}</b> <button class="s" onclick="finYear++;Financials()">▶</button> <button class="s" onclick="finYear=new Date().getFullYear();Financials()">This year</button></p>`;
+const stat=(v,l,sub)=>`<div class="card stat"><b>${v}</b>${l}${sub?`<div class="muted" style="font-size:12px">${sub}</div>`:''}</div>`;
+async function Financials(){
+  if(ME.role!=='admin'){$('view').innerHTML='<p class="muted">Financials are for admins.</p>';return}
+  $('view').innerHTML=finTabs()+'<p class="muted">Loading…</p>';await finLoad();
+  const d=finYearData(finYear), y=finYear;
+  let body='';
+  if(finTab==='overview'){
+    const outstanding=finReceivables().reduce((a,r)=>a+r.balance,0), pipe=FIN.pipeline.reduce((a,e)=>a+e.value,0);
+    const best=d.rev.indexOf(Math.max(...d.rev));
+    body=finYearNav()+`<div class="grid">${stat(fm(d.revT),y+' revenue','booked events, by event days')}${stat(d.cntT,'Events booked',d.cntT?fm(d.revT/d.cntT)+' avg':'')}${stat(fm(d.recT),'Cash received','payments dated '+y)}${stat(fm(d.revT?d.revT/12:0),'Avg / month',d.revT?'best: '+MN[best]:'')}${stat(fm(outstanding),'Outstanding','all booked events')}${stat(fm(pipe),'Pipeline','tentative, not in revenue')}</div>
+     <h3>Revenue vs. cash received</h3><div class="card"><canvas id="finCv" style="width:100%"></canvas><p class="muted" style="margin:4px 0 0"><span style="color:#a8321f">■</span> Revenue (event month) &nbsp; <span style="color:#3f6b2f">■</span> Cash received (payment month)</p></div>
+     <h3>By month <button class="s" style="float:right" onclick="finCsv()">Export CSV</button></h3>
+     <table><tr><th>Month</th><th>Events</th><th>Revenue</th><th>Cash received</th><th>Deposits</th><th>Balances &amp; other</th><th>Received in event month</th></tr>${MN.map((m,i)=>`<tr><td>${m}</td><td>${d.cnt[i]||''}</td><td><b>${d.rev[i]?fm(d.rev[i]):''}</b></td><td>${d.rec[i]?fm(d.rec[i]):''}</td><td>${d.dep[i]?fm(d.dep[i]):''}</td><td>${d.bal[i]?fm(d.bal[i]):''}</td><td>${d.inMonth[i]?fm(d.inMonth[i]):''}</td></tr>`).join('')}
+     <tr style="font-weight:700;background:var(--cream2)"><td>${y}</td><td>${d.cntT}</td><td>${fm(d.revT)}</td><td>${fm(d.recT)}</td><td>${fm(d.depT)}</td><td>${fm(d.balT)}</td><td>${fm(d.inT)}</td></tr></table>
+     <p class="muted">Revenue is the contract value of confirmed and completed events, spread over the days each event runs (a Feb 27–Mar 2 event is split between February and March). Cash received is by the date each payment was recorded, so a deposit paid in July for an October event counts as July cash and October revenue. "Received in event month" is cash that arrived in the same month the event started.</p>`;
+  }else if(finTab==='payments'){
+    const rows=FIN.paid.filter(p=>p.paid_at&&+p.paid_at.slice(0,4)===y).sort((a,b)=>b.paid_at.localeCompare(a.paid_at));
+    body=finYearNav()+(rows.length?`<table><tr><th>Date</th><th>Customer / event</th><th>Invoice</th><th>Method</th><th>Amount</th></tr>${rows.map(p=>`<tr><td>${fmtDate(p.paid_at)}</td><td>${esc(p.ev?(FIN.org[p.ev.organization_id]||'')+' — '+p.ev.name:'')}</td><td>${esc(p.inv?p.inv.number+' ('+p.inv.kind+')':'')}</td><td>${esc(p.method)} ${esc(p.reference)}</td><td><b>${fm(p.amount)}</b></td></tr>`).join('')}<tr style="font-weight:700;background:var(--cream2)"><td colspan="4">Total ${y}</td><td>${fm(rows.reduce((a,p)=>a+p.amount,0))}</td></tr></table>`:'<p class="muted">No payments recorded in '+y+'. Record payments on an invoice.</p>');
+  }else if(finTab==='receivables'){
+    const rows=finReceivables(), tot=rows.reduce((a,r)=>a+r.balance,0);
+    body=`<p style="font-size:18px">Total outstanding: <b style="color:var(--barn)">${fm(tot)}</b></p>`+(rows.length?`<table><tr><th>Event</th><th>Customer</th><th>Dates</th><th>Contract value</th><th>Received</th><th>Balance</th></tr>${rows.map(r=>`<tr style="cursor:pointer" onclick="openEvent('${r.id}')"><td>${esc(r.name)}</td><td>${esc(r.org)}</td><td>${fmtDate(r.start_date)}${r.end_date&&r.end_date!==r.start_date?' – '+fmtDate(r.end_date):''}</td><td>${fm(r.value)}</td><td>${fm(r.received)}</td><td><b>${fm(r.balance)}</b></td></tr>`).join('')}</table>`:'<p class="muted">Nothing outstanding. 🎉</p>')+'<p class="muted">Booked events whose recorded payments are less than the contract value. Click a row to open the event and add an invoice or payment.</p>';
+  }else{
+    const years=[...new Set([...FIN.booked.flatMap(e=>Object.keys(spreadRevenue(e)).map(k=>+k.slice(0,4))),...FIN.paid.filter(p=>p.paid_at).map(p=>+p.paid_at.slice(0,4)),new Date().getFullYear()])].sort((a,b)=>b-a);
+    const data=years.map(yr=>({yr,...finYearData(yr)}));
+    body=`<table><tr><th>Year</th><th>Events</th><th>Revenue</th><th>Cash received</th><th>Growth vs prior year</th></tr>${data.map(r=>{const prev=data.find(x=>x.yr===r.yr-1);const gr=prev&&prev.revT?((r.revT-prev.revT)/prev.revT*100):null;return `<tr style="cursor:pointer" onclick="finYear=${r.yr};finTab='overview';Financials()"><td><b>${r.yr}</b></td><td>${r.cntT}</td><td>${fm(r.revT)}</td><td>${fm(r.recT)}</td><td>${gr===null?'—':(gr>=0?'+':'')+gr.toFixed(1)+'%'}</td></tr>`}).join('')}</table><p class="muted">Click a year to see its months.</p>`;
+  }
+  $('view').innerHTML=finTabs()+body;
+  if(finTab==='overview'){const cv=$('finCv');if(cv)finDrawChart(cv,MN,d.rev,d.rec)}
+}
+function finReceivables(){
+  return FIN.booked.map(e=>{const received=FIN.paid.filter(p=>p.event_id===e.id).reduce((a,p)=>a+p.amount,0);return {...e,received,balance:Math.round((e.value-received)*100)/100}}).filter(r=>r.value>0&&r.balance>0.005).sort((a,b)=>b.balance-a.balance);
+}
+function finCsv(){
+  const d=finYearData(finYear), rows=[['Month','Events','Revenue','Cash received','Deposits','Balances & other','Received in event month']];
+  MN.forEach((m,i)=>rows.push([m+' '+finYear,d.cnt[i],d.rev[i].toFixed(2),d.rec[i].toFixed(2),d.dep[i].toFixed(2),d.bal[i].toFixed(2),d.inMonth[i].toFixed(2)]));
+  rows.push(['Total',d.cntT,d.revT.toFixed(2),d.recT.toFixed(2),d.depT.toFixed(2),d.balT.toFixed(2),d.inT.toFixed(2)]);
+  const csv=rows.map(r=>r.map(c=>'"'+String(c).replace(/"/g,'""')+'"').join(',')).join('\n'), a=document.createElement('a');
+  a.href=URL.createObjectURL(new Blob([csv],{type:'text/csv'}));a.download='farmtastic-financials-'+finYear+'.csv';a.click();
+}
 // ---------- Team (admins only): view / add / edit staff logins. Creating logins + passwords goes through the manage-staff edge function.
 async function staffFn(body){
   const {data,error}=await sb.functions.invoke('manage-staff',{body});
