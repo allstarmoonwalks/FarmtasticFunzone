@@ -4,7 +4,9 @@
 //   create        {name, email, role, phone?, send_invite?, password?}  -> employees row + auth login
 //   invite        {employee_id}                                          -> emails a "set your password" link
 //   set_password  {employee_id, password?}                               -> sets a temporary password (random if omitted); returned once
-// The caller must be signed in as an ACTIVE employee with role 'admin' (checked with their own token).
+//   delete        {employee_id}                                          -> SUPER ADMIN only: removes the team member and their login
+// The caller must be an ACTIVE employee with role 'admin' or 'super_admin' (checked with their own token). Only a super admin can
+// create/modify a super admin or delete users.
 // Secrets: RESEND_API_KEY (+ optional FROM_EMAIL, REPLY_TO, SITE_URL — same as send-contract-email).
 // SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY are provided to every function by Supabase.
 const URL_ = Deno.env.get("SUPABASE_URL")!;
@@ -18,7 +20,7 @@ const json = (b: unknown, status = 200) =>
   new Response(JSON.stringify(b), { status, headers: { ...cors, "Content-Type": "application/json" } });
 const esc = (s: unknown) => String(s ?? "").replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]!));
 const EMAIL = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-const ROLES = ["admin", "manager", "crew"];
+const ROLES = ["super_admin", "admin", "manager", "crew"];
 const site = () => (Deno.env.get("SITE_URL") || "https://www.farmtasticfunzone.com").replace(/\/$/, "");
 const svc = { apikey: SERVICE, Authorization: `Bearer ${SERVICE}`, "Content-Type": "application/json" };
 
@@ -86,7 +88,8 @@ Deno.serve(async (req) => {
   const callerEmail = ur.ok ? (await ur.json()).email : "";
   if (!callerEmail) return json({ error: "Sign in first." }, 401);
   const me = (await (await rest(`employees?email=ilike.${encodeURIComponent(callerEmail)}&status=eq.active&select=id,role`)).json())?.[0];
-  if (!me || me.role !== "admin") return json({ error: "Admins only." }, 403);
+  if (!me || !["admin", "super_admin"].includes(me.role)) return json({ error: "Admins only." }, 403);
+  const isSuper = me.role === "super_admin";
 
   let b: Record<string, any>;
   try { b = await req.json(); } catch { return json({ error: "Bad request." }, 400); }
@@ -96,7 +99,8 @@ Deno.serve(async (req) => {
       const name = String(b.name || "").trim(), email = String(b.email || "").trim().toLowerCase();
       if (name.length < 2) return json({ error: "Name is required." }, 400);
       if (!EMAIL.test(email)) return json({ error: "A valid email is required." }, 400);
-      if (!ROLES.includes(b.role)) return json({ error: "Role must be admin, manager or crew." }, 400);
+      if (!ROLES.includes(b.role)) return json({ error: "Role must be super_admin, admin, manager or crew." }, 400);
+      if (b.role === "super_admin" && !isSuper) return json({ error: "Only a super admin can create a super admin." }, 403);
       if (b.password && String(b.password).length < 8) return json({ error: "Password must be at least 8 characters." }, 400);
       const dup = await (await rest(`employees?email=ilike.${encodeURIComponent(email)}&select=id`)).json();
       if (dup.length) return json({ error: "That email is already on the team." }, 409);
@@ -117,6 +121,23 @@ Deno.serve(async (req) => {
     const emp = b.employee_id && /^[0-9a-f-]{36}$/i.test(b.employee_id)
       ? (await (await rest(`employees?id=eq.${b.employee_id}&select=id,name,email,role`)).json())?.[0] : null;
     if (!emp) return json({ error: "Team member not found." }, 404);
+    if (emp.role === "super_admin" && !isSuper) return json({ error: "Only a super admin can change a super admin." }, 403);
+
+    if (b.action === "delete") {
+      if (!isSuper) return json({ error: "Only a super admin can delete users." }, 403);
+      if (emp.id === me.id) return json({ error: "You can't delete your own account." }, 400);
+      if (emp.role === "super_admin") {
+        const others = await (await rest(`employees?role=eq.super_admin&status=eq.active&id=neq.${emp.id}&select=id`)).json();
+        if (!others.length) return json({ error: "That's the only super admin — make someone else a super admin first." }, 400);
+      }
+      await rest(`leads?assigned_to=eq.${emp.id}`, { method: "PATCH", headers: { Prefer: "return=minimal" }, body: JSON.stringify({ assigned_to: null }) });
+      await rest(`tasks?assigned_to=eq.${emp.id}`, { method: "PATCH", headers: { Prefer: "return=minimal" }, body: JSON.stringify({ assigned_to: null }) });
+      const dr = await rest(`employees?id=eq.${emp.id}`, { method: "DELETE", headers: { Prefer: "return=minimal" } });
+      if (!dr.ok) return json({ error: "Could not delete the team member: " + (await dr.text()).slice(0, 200) }, 500);
+      const link = await generateLink(emp.email); // its response carries the login's id (empty if the login doesn't exist)
+      if (link.id) await fetch(`${URL_}/auth/v1/admin/users/${link.id}`, { method: "DELETE", headers: svc });
+      return json({ ok: true });
+    }
 
     if (b.action === "invite") {
       await ensureUser(emp.email);

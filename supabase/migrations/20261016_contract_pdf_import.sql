@@ -58,3 +58,37 @@ begin
   return new;
 end $$;
 create trigger contracts_inventory_trg before insert or update of status, event_id on contracts for each row execute function check_inventory_conflict();
+
+-- Tasks (Oct 16, 2026): completion tracking + notes (assigned_to / due_date already existed).
+alter table tasks add column if not exists completed_at timestamptz;
+alter table tasks add column if not exists completed_by uuid references employees(id) on delete set null;
+alter table tasks add column if not exists notes text;
+create index if not exists tasks_completed_by_idx on tasks(completed_by);
+
+-- Super admin role (Oct 16, 2026). Only a super admin can delete customers, leads and users, or create/change a super admin.
+alter table employees drop constraint employees_role_check;
+alter table employees add constraint employees_role_check check (role in ('super_admin','admin','manager','crew'));
+-- update employees set role = 'super_admin' where lower(email) = 'czmmermn@gmail.com';   -- applied
+-- is_admin() now includes super_admin; is_role_admin() = admin + super_admin; is_super_admin() = super_admin only:
+create or replace function public.is_super_admin() returns boolean language sql stable security definer set search_path = public as $$
+  select exists (select 1 from employees where lower(email) = lower(auth.jwt() ->> 'email') and status = 'active' and role = 'super_admin');
+$$;
+revoke execute on function public.is_super_admin() from public, anon;
+grant execute on function public.is_super_admin() to authenticated, service_role;
+create or replace function public.super_admin_only_delete() returns trigger language plpgsql set search_path = public as $$
+begin
+  if current_user in ('postgres','service_role','supabase_admin') or (select public.is_super_admin()) then return old; end if;
+  raise exception 'Only a super admin can delete %.', replace(tg_table_name, '_', ' ');
+end $$;
+create trigger organizations_super_delete before delete on organizations for each row execute function super_admin_only_delete();
+create trigger leads_super_delete before delete on leads for each row execute function super_admin_only_delete();
+create or replace function public.employees_guard() returns trigger language plpgsql set search_path = public as $$
+begin
+  if current_user in ('postgres','service_role','supabase_admin') or (select public.is_super_admin()) then return coalesce(new, old); end if;
+  if tg_op = 'DELETE' then raise exception 'Only a super admin can delete users.'; end if;
+  if new.role = 'super_admin' or (tg_op = 'UPDATE' and old.role = 'super_admin') then
+    raise exception 'Only a super admin can create or change a super admin.';
+  end if;
+  return new;
+end $$;
+create trigger employees_guard_trg before insert or update or delete on employees for each row execute function employees_guard();
