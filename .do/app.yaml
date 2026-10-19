@@ -1,0 +1,14 @@
+# DigitalOcean App Platform spec (optional reference; the same settings can be made in the console).
+# Publishes only /site, so the docs, supabase/ migrations and tests are never served.
+name: farmtasticfunzone
+region: nyc
+static_sites:
+  - name: site
+    github:
+      repo: allstarmoonwalks/FarmtasticFunzone
+      branch: main
+      deploy_on_push: true
+    source_dir: /site
+    error_document: 404.html
+    routes:
+      - path: /

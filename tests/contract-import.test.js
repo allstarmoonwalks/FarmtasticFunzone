@@ -1,4 +1,4 @@
-const CI = require('./contract-import.js'), assert = require('assert');
+const CI = require('../site/shared/contract-import.js'), assert = require('assert');
 const base = `                                 2027 AGREEMENT
                                FarmTastic FunZone
                              Steve Allen/April Speight
@@ -212,7 +212,7 @@ assert.match(r.dates_note, /2027 and 2028/); assert.equal(r.city, 'Exampleville'
 assert.equal(r.total, 6620); assert.equal(r.retainer, 2206); assert.equal(r.final, 4414); assert.equal(r.package_total, 7284); assert.equal(r.per_year, true); assert.equal(r.craft, true);
 assert.deepEqual(r.price_lines.map(l => l.amount), [6440, 644, 200, -364, -300]); assert.equal(r.booths, 10); assert.equal(r.days, 4);
 assert.equal(r.requirements_title, 'Requirements per year'); assert.deepEqual(r.booth_names, ['Pedal Tractors Track']);
-assert.equal(require('./schedule.js').format(r.schedule), 'Wed–Thu 4pm–10pm · Fri–Sat 4pm–12am'); assert.equal(r.schedule.length, 4);
+assert.equal(require('../site/shared/schedule.js').format(r.schedule), 'Wed–Thu 4pm–10pm · Fri–Sat 4pm–12am'); assert.equal(r.schedule.length, 4);
 assert.equal(r.contractor_date, 'May 14, 2026'); assert.equal(r.signed, false);
 console.log('multi-year ok');
 

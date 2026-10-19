@@ -1,4 +1,4 @@
-const S = require('./schedule.js'), assert = require('assert');
+const S = require('../site/shared/schedule.js'), assert = require('assert');
 assert.deepEqual(S.parseRange('4pm-10pm'), { start: '16:00', end: '22:00' });
 assert.deepEqual(S.parseRange('4pm-12am'), { start: '16:00', end: '24:00' });
 assert.deepEqual(S.parseRange('4-10pm'), { start: '16:00', end: '22:00' });

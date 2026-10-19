@@ -1,4 +1,4 @@
-const C = require('./contract.js'), assert = require('assert');
+const C = require('../site/shared/contract.js'), assert = require('assert');
 const t = C.defaults({
   org: { name: 'Loredo Annual Fair', address: '7128 E. Saunders St.', city: 'Loredo', state: 'TX', zip: '78041', phone: '(956)722-9948' },
   event: { start_date: '2027-02-24', end_date: '2027-02-27', booths: 4 },

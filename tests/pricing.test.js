@@ -1,4 +1,4 @@
-const assert = require('assert'); const P = require('./pricing.js');
+const assert = require('assert'); const P = require('../site/shared/pricing.js');
 assert.strictEqual(P.quote({ booths: 8, days: 3 }).total, 4566);
 assert.strictEqual(P.quote({ booths: 8, days: 10 }).total, 12000);
 assert.strictEqual(P.quote({ booths: 4, days: 2, craft: true }).total, 1222 * 2 + 400);
