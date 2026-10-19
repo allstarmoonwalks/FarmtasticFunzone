@@ -1,0 +1,41 @@
+# Deploys the static site to the droplet on every push to main (replaces Netlify).
+# Repo secrets (Settings -> Secrets and variables -> Actions): VPS_SSH_KEY, VPS_HOST, VPS_USER
+#   (same three values the AllStar repo uses; the key must be allowed to log in as VPS_USER).
+name: Deploy to VPS
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch: {}
+
+concurrency:
+  group: deploy-vps
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up SSH key
+        run: |
+          mkdir -p ~/.ssh
+          printf '%s\n' "${{ secrets.VPS_SSH_KEY }}" > ~/.ssh/deploy_key
+          chmod 600 ~/.ssh/deploy_key
+          ssh-keyscan -H "${{ secrets.VPS_HOST }}" >> ~/.ssh/known_hosts
+
+      # --delete keeps the server identical to the repo (renamed/removed pages disappear), limited to this site's folder.
+      - name: Rsync site files
+        run: |
+          rsync -avz --delete --chmod=D755,F644 \
+            -e "ssh -i ~/.ssh/deploy_key" \
+            --exclude='.git/' --exclude='.github/' --exclude='.DS_Store' --exclude='node_modules/' \
+            --exclude='supabase/' --exclude='deploy/' \
+            --exclude='*.md' --exclude='*.sql' --exclude='*.sh' --exclude='*.conf' --exclude='*.test.js' \
+            --exclude='netlify.toml' --exclude='_redirects' --exclude='package*.json' \
+            ./ "${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }}:/var/www/farmtasticfunzone/"
+
+      - name: Clean up key
+        if: always()
+        run: rm -f ~/.ssh/deploy_key
