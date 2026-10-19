@@ -13,7 +13,7 @@ Hosting stays on Netlify (no VPS / Node server needed — SMS goes through a Sup
 | Crew app | `/app/` | Installable PWA (Add to Home Screen): upcoming events + load-in notes + directions, call/text leads, tasks. |
 | Database | `supabase/migrations/20261003_farmtastic_crm.sql` | All tables staff-only via RLS. The public site can only call `submit_lead()`. |
 | Lead SMS | `supabase/functions/notify-lead` | Texts the owner on each new lead (DB webhook). |
-| Pricing | `shared/pricing.js` | Same grid as `pricing.html`; `node shared/pricing.test.js`. |
+| Pricing | `shared/pricing.js` | Same grid as `pricing.html`; `node tests/pricing.test.js`. |
 
 ## Sales flow
 Customer record → quote sent → quote accepted → contract created from the customer + quote + event → contract
@@ -21,7 +21,7 @@ sent (copy link / email link) → customer signs (emailed link or portal) → si
 record, event set to **confirmed** with the contracted dates (shown on Events → Calendar), quote marked accepted,
 lead marked won. A signed contract can't be edited or deleted (database trigger) — void it and make a new one.
 - Contract wording lives in `shared/contract.js` (from the 2027 Loredo agreement). The rendered text is stored on the
-  contract row when it is saved, so later wording changes never alter a sent/signed contract. `node shared/contract.test.js`.
+  contract row when it is saved, so later wording changes never alter a sent/signed contract. `node tests/contract.test.js`.
 - Prices come from the database price list (`price_tiers` + `settings.pricing`; falls back to `shared/pricing.js`). On an event, the quote builder prices booths/days/craft live, with travel and a $ or % discount; every number on the quote stays editable (Quotes tab, with a discount-% helper). A contract made before any quote exists is priced from the price list too.
 - Retainer = 1/3 of the total, final = the rest (editable on the contract form).
 - Migration `supabase/migrations/20261014_contracts_portal.sql`: `contracts`, `payments`, customer read-only RLS via
@@ -38,7 +38,7 @@ lead marked won. A signed contract can't be edited or deleted (database trigger)
 
 ## Import a contract PDF (Contracts tab)
 **⬆ Import contract PDF** reads an agreement PDF in the browser (pdf.js, text PDFs only — not scans/photos) with the parser in
-`shared/contract-import.js` (`node shared/contract-import.test.js`), shows a review screen, then creates: the **customer** (matched to an
+`shared/contract-import.js` (`node tests/contract-import.test.js`), shows a review screen, then creates: the **customer** (matched to an
 existing one by name, else new, with address/phone), an optional **contact**, the **event** (booths, craft station, matched attractions,
 other booth names in the notes), a **quote** with the contract's pricing (per-day, craft, discount, total), and the **digital contract**
 (same template as new contracts) with the original PDF stored privately (`contract-pdfs` bucket, staff-only) and a "📄 Original PDF" button.
@@ -48,7 +48,7 @@ contract is stored as **signed**, the quote **accepted**, and the event **confir
 
 ### Event times and multi-year contracts
 - **Times of engagement** are read too: "Wednesday and Thursday 4pm-10pm, Friday and Saturday 4pm-12am" becomes a per-day schedule on the contracted dates
-  (`shared/schedule.js`, `node shared/schedule.test.js`; stored in `events.schedule` + `events.times_text`). The review screen shows it as editable lines
+  (`shared/schedule.js`, `node tests/schedule.test.js`; stored in `events.schedule` + `events.times_text`). The review screen shows it as editable lines
   (`2026-10-21 4pm-10pm`) with a "rebuild from the times above" link; events have the same editor. Times show on the Events list, the calendar chip
   tooltips, the crew app event cards and the customer portal. Unsigned imports keep the schedule in the contract and it is applied to the event when the contract is signed.
 - **Multi-year contracts** ("2026-2028 AGREEMENT", "3-YEAR CONTRACT", dates to be determined later): the first year's event is scheduled from the dates;
@@ -118,3 +118,7 @@ The free-tier project pauses after ~7 days without activity. `.github/workflows/
 calls `public.keepalive()` every 3 days (and can be run by hand from the Actions tab). GitHub turns off
 scheduled workflows after 60 days of no repo activity; any push to the repo re-enables them. If the
 project ever shows as paused, restore it in the Supabase dashboard (Restore project).
+
+## Repo layout (Oct 2026)
+Everything the public can see lives in `site/` (pages, `admin/`, `app/`, `portal/`, `sign/`, `shared/`, images). Docs, `supabase/` (migrations and edge functions), `tests/` and `.github/` sit outside it and are never published. Hosting (DigitalOcean App Platform) uses **Source directory `/site`**. Paths like `shared/pricing.js` in these notes mean `site/shared/pricing.js`; tests run with `node tests/<name>.test.js`.
+Note: Netlify's `netlify.toml`/`_redirects` were removed with this move. If you go back to Netlify, set Publish directory to `site` and re-add the `/admin/`, `/app/`, `/portal/`, `/sign/` noindex headers.
